@@ -133,8 +133,8 @@ input,select,textarea{font-family:inherit}
   border-radius:var(--radius-sm);padding:10px 12px;margin-top:12px;border:1px solid var(--border);
 }
 .rate-row label{font-size:12.5px;color:var(--text-muted);font-weight:600}
-.rate-row input{width:110px;text-align:right;border:none;background:transparent;font-weight:700;font-size:14px;color:var(--text)}
-.rate-row input:focus{outline:none}
+.rate-row input{width:120px;text-align:right;border:1.5px solid var(--border);background:var(--surface);border-radius:8px;padding:8px 10px;font-weight:700;font-size:14px;color:var(--text);transition:.15s}
+.rate-row input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-light)}
 
 /* ---------- APP SHELL ---------- */
 #appScreen{width:100%}
@@ -202,75 +202,64 @@ input,select,textarea{font-family:inherit}
 .view-content{flex:1;min-height:0;overflow-y:auto;padding:22px 26px;display:block}
 
 /* ---------- VENTA VIEW ---------- */
-.pos-layout{display:flex;flex:1;min-height:0;gap:0;width:100%}
-.pos-main{flex:1;display:flex;flex-direction:column;min-width:0;padding:20px 22px;gap:16px;overflow-y:auto}
-.pos-side{
-  width:380px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);
-  display:flex;flex-direction:column;min-height:0;
-}
+.vb-shell{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;width:100%}
+.vb-window{grid-column:span 9;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;height:100%;overflow:hidden}
+.vb-right{grid-column:span 3;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;padding:20px;height:100%}
+.vb-row{display:flex;gap:16px;flex-wrap:wrap;padding:18px 20px 4px}
+.vb-field{flex:1;min-width:240px}
+.vb-field>label{display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px}
 
 .searchbar{position:relative}
-.searchbar .sicon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted)}
+.searchbar .sicon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);display:flex}
 .searchbar input{
-  width:100%;padding:13px 14px 13px 42px;border:1.5px solid var(--border);border-radius:var(--radius);
-  font-size:14.5px;background:var(--surface);box-shadow:var(--shadow-sm);transition:.15s;
+  width:100%;padding:6px 14px 6px 36px;border:1.5px solid var(--border);border-radius:10px;
+  font-size:13px;background:var(--surface);box-shadow:var(--shadow-sm);transition:.15s;
 }
 .searchbar input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-light)}
 .searchbar .kbd{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--text-muted);background:var(--surface-alt);border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-family:'Roboto Mono',monospace}
 
-.chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{
-  padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--surface);
-  border:1.5px solid var(--border);color:var(--text-muted);transition:.15s;
-}
-.chip:hover{border-color:var(--primary);color:var(--primary)}
-.chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-
-.product-grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px;
-  align-content:start;
-}
-.pcard{
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:.15s;
-  box-shadow:var(--shadow-sm);position:relative;
-}
-.pcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--primary)}
-.pcard:active{transform:translateY(-1px) scale(.98)}
-.pcard.disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.4)}
-.pcard.disabled:hover{transform:none;box-shadow:var(--shadow-sm);border-color:var(--border)}
-.pcard .ptile{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff}
-.pcard .pname{font-size:13px;font-weight:600;line-height:1.3;min-height:34px}
-.pcard .pcode{font-size:10.5px;color:var(--text-muted);font-family:'Roboto Mono',monospace}
-.pcard .pfoot{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
-.pcard .pprice{font-weight:700;font-size:14.5px;color:var(--primary)}
 .badge{font-size:10px;font-weight:700;padding:3px 7px;border-radius:999px;white-space:nowrap}
 .badge.ok{background:var(--success-light);color:var(--success)}
 .badge.low{background:var(--warning-light);color:var(--warning)}
 .badge.out{background:var(--danger-light);color:var(--danger)}
-.pcard .plusfab{
-  position:absolute;top:10px;right:10px;width:24px;height:24px;border-radius:8px;background:var(--primary-light);
-  color:var(--primary);display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;
+
+.vb-grid-title{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;padding:14px 20px 8px}
+.vb-grid-wrap{flex:1;min-height:0;overflow:auto;margin:0 20px 20px;border:1px solid var(--border);border-radius:var(--radius-sm)}
+table.vb-datagrid{width:100%;border-collapse:collapse;font-size:12.5px}
+.vb-datagrid thead th{
+  position:sticky;top:0;background:var(--surface-alt);color:var(--text-muted);font-weight:700;font-size:11px;
+  text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;
 }
-.pcard:hover .plusfab{opacity:1}
+.vb-datagrid thead th:last-child{border-right:none}
+.vb-datagrid tbody td{padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:middle}
+.vb-datagrid tbody td:nth-child(2){padding-left:8px;padding-right:8px;white-space:nowrap}
+.vb-datagrid tbody td:nth-child(5){padding-left:6px;padding-right:6px}
+.vb-datagrid tbody td:last-child{border-right:none}
+.vb-datagrid tbody tr:hover td{background:var(--primary-light)}
+.vb-datagrid td.num{font-family:'Roboto Mono',monospace}
+.vb-qty-input{
+  width:50px;text-align:center;padding:5px 4px;border:1px solid var(--border);border-radius:6px;
+  font-family:'Roboto Mono',monospace;font-weight:700;font-size:12.5px;background:var(--surface);color:var(--text);
+}
+.vb-qty-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.vb-row-del{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
+.vb-row-del:hover{background:var(--danger-light);color:var(--danger)}
 
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;color:var(--text-muted);text-align:center;gap:10px;width:100%}
 .empty-state .ic{width:52px;height:52px;border-radius:16px;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;color:var(--text-muted)}
 .empty-state b{color:var(--text);font-size:14px}
 .empty-state span{font-size:12.5px}
 
-/* --- sidebar cart --- */
-.side-block{padding:16px 18px;border-bottom:1px solid var(--border)}
-.side-title{font-size:11.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+/* --- cliente seleccionado / dropdowns --- */
 .client-selected{
-  display:flex;align-items:center;gap:10px;background:var(--primary-light);border-radius:var(--radius-sm);
-  padding:10px 12px;
+  height:34px;box-sizing:border-box;display:flex;align-items:center;gap:8px;background:var(--primary-light);
+  border:1.5px solid var(--border);border-radius:10px;padding:0 8px 0 6px;
 }
-.client-selected .avatar{width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
-.client-selected .info{flex:1;min-width:0}
-.client-selected .info b{font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.client-selected .info span{font-size:11px;color:var(--text-muted)}
-.client-selected button{color:var(--text-muted);flex-shrink:0}
+.client-selected .avatar{width:22px;height:22px;border-radius:6px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9.5px;flex-shrink:0}
+.client-selected .info{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;overflow:hidden}
+.client-selected .info b{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-selected .info span{font-size:10.5px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;font-family:'Roboto Mono',monospace}
+.client-selected button{width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0}
 .client-selected button:hover{color:var(--danger)}
 
 .dropdown{
@@ -284,33 +273,21 @@ input,select,textarea{font-family:inherit}
 .dropdown-item span{font-size:11px;color:var(--text-muted)}
 .dropdown-empty{padding:14px;text-align:center;font-size:12.5px;color:var(--text-muted)}
 
-.cart-list{flex:1;overflow-y:auto;padding:6px 18px}
-.cart-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
-.cart-row:last-child{border-bottom:none}
-.cart-row .cinfo{flex:1;min-width:0}
-.cart-row .cinfo b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cart-row .cinfo span{font-size:11px;color:var(--text-muted)}
-.qty-stepper{display:flex;align-items:center;background:var(--surface-alt);border:1px solid var(--border);border-radius:8px}
-.qty-stepper button{width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-weight:700}
-.qty-stepper button:hover{color:var(--primary)}
-.qty-stepper span{width:22px;text-align:center;font-size:12.5px;font-weight:700}
-.cart-row .cprice{width:64px;text-align:right;font-size:12.5px;font-weight:700}
-.cart-row .cdel{color:var(--text-muted);flex-shrink:0}
-.cart-row .cdel:hover{color:var(--danger)}
-
-.totals{padding:16px 18px;border-top:1px solid var(--border);background:var(--surface-alt)}
-.trow{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-muted);margin-bottom:6px}
-.trow.big{font-size:15.5px;font-weight:700;color:var(--text);margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)}
-.trow.bs{font-size:11.5px;color:var(--text-muted);margin-top:2px}
+.vb-right-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
+.vb-totals{display:flex;flex-direction:column;gap:10px;flex:1}
+.vb-totals div{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.vb-totals span{font-size:11.5px;color:var(--text-muted);font-weight:600}
+.vb-totals b{font-size:13.5px;font-weight:700;color:var(--text)}
+.vb-totals .tot{margin-top:4px;padding-top:14px;border-top:1px dashed var(--border)}
+.vb-totals .tot span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.vb-totals .tot b{font-size:20px;color:var(--primary)}
 .checkout-btn{
-  width:100%;margin-top:14px;padding:15px;border-radius:var(--radius-sm);background:var(--primary);color:#fff;
+  width:100%;margin-top:16px;padding:14px;border-radius:var(--radius-sm);background:var(--primary);color:#fff;
   font-weight:700;font-size:14.5px;display:flex;align-items:center;justify-content:space-between;gap:10px;
-  box-shadow:0 8px 20px rgba(93,63,211,.32);transition:.15s;
+  box-shadow:0 8px 20px rgba(93,63,211,.32);transition:.15s;flex-shrink:0;
 }
 .checkout-btn:hover:not(:disabled){background:var(--primary-dark);transform:translateY(-1px)}
 .checkout-btn:disabled{background:var(--border);color:var(--text-muted);box-shadow:none;cursor:not-allowed}
-.clear-link{display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--text-muted);font-weight:500}
-.clear-link:hover{color:var(--danger)}
 
 /* ---------- TABLES (productos / entradas / reportes) ---------- */
 .view-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
@@ -449,8 +426,9 @@ table.data-table{width:100%;border-collapse:collapse;font-size:13px;min-width:64
   .sidebar-brand{padding:0;flex-shrink:0}
   .sidebar-nav{flex-direction:row;flex:none}
   .sidebar-user{border-top:none;margin-top:0;padding-top:0;flex-shrink:0}
-  .pos-layout{flex-direction:column}
-  .pos-side{width:100%;border-left:none;border-top:1px solid var(--border)}
+  .vb-row{flex-direction:column}
+  .vb-shell{grid-template-columns:1fr}
+  .vb-window,.vb-right{grid-column:span 1}
   .entrada-grid{grid-template-columns:1fr}
 }
 @media print{
@@ -489,14 +467,10 @@ table.data-table{width:100%;border-collapse:collapse;font-size:13px;min-width:64
   <div class="caja-card">
     <div class="caja-icon"></div>
     <h1>Apertura de caja</h1>
-    <p class="sub">Ingresa el monto inicial para comenzar a vender</p>
-    <div class="field" style="text-align:left">
-      <label>Monto inicial (Bs)</label>
-      <input type="number" id="cajaMonto" value="500" min="0" step="0.01">
-    </div>
+    <p class="sub">Confirma la tasa de cambio para comenzar a vender</p>
     <div class="rate-row">
       <label>Tasa de cambio (Bs/$)</label>
-      <input type="number" id="tasaCambio" value="189.35" min="0" step="0.01">
+      <input type="text" inputmode="decimal" id="tasaCambio" value="189.35" placeholder="Ej. 189.35">
     </div>
     <button id="btnAperturar" class="btn btn-primary btn-block" style="margin-top:20px">Aperturar caja</button>
   </div>
@@ -530,47 +504,64 @@ table.data-table{width:100%;border-collapse:collapse;font-size:13px;min-width:64
 
       <!-- VISTA: VENTA -->
       <div class="view active" id="viewVenta">
-        <div class="pos-layout">
-          <div class="pos-main">
-            <div class="searchbar">
-              <span class="sicon" id="iconSearchProd"></span>
-              <input type="text" id="productSearch" placeholder="Buscar producto por código o nombre...">
-              <span class="kbd">F1</span>
-            </div>
-            <div class="chips" id="categoryChips"></div>
-            <div class="product-grid" id="productGrid"></div>
-          </div>
+        <div class="view-content" style="display:flex">
+          <div class="vb-shell">
+          <div class="vb-window">
 
-          <div class="pos-side">
-            <div class="side-block" style="position:relative">
-              <div class="side-title">Cliente</div>
-              <div id="clientSearchWrap">
-                <div class="searchbar">
+            <div class="vb-row">
+              <div class="vb-field">
+                <div class="searchbar" id="clientSearchWrap">
                   <span class="sicon" id="iconSearchClient"></span>
-                  <input type="text" id="clientSearch" placeholder="Cédula o nombre..." autocomplete="off">
+                  <input type="text" id="clientSearch" placeholder="Buscar o ingresar cliente" autocomplete="off">
                   <span class="kbd">F2</span>
+                  <div class="dropdown" id="clientDropdown" style="display:none"></div>
                 </div>
-                <div class="dropdown" id="clientDropdown" style="display:none"></div>
+                <div id="clientSelectedWrap" style="display:none"></div>
               </div>
-              <div id="clientSelectedWrap" style="display:none"></div>
+
+              <div class="vb-field">
+                <div class="searchbar" id="productSearchWrap">
+                  <span class="sicon" id="iconSearchProd"></span>
+                  <input type="text" id="productSearch" placeholder="Buscar producto por código o nombre..." autocomplete="off">
+                  <span class="kbd">F1</span>
+                  <div class="dropdown" id="productDropdown" style="display:none"></div>
+                </div>
+              </div>
             </div>
 
-            <div class="side-block" style="padding-bottom:10px;flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:none">
-              <div class="side-title">Carrito <span id="cartCount" class="badge ok" style="margin-left:2px">0</span></div>
+            <div class="vb-grid-title">Productos de la venta <span id="cartCount" class="badge ok">0</span></div>
+            <div class="vb-grid-wrap">
+              <table class="vb-datagrid">
+                <thead>
+                  <tr>
+                    <th style="width:38px">#</th>
+                    <th style="width:78px">Código</th>
+                    <th>Producto</th>
+                    <th style="width:90px">P. Unit.</th>
+                    <th style="width:80px">Cantidad</th>
+                    <th style="width:100px">Subtotal</th>
+                    <th style="width:36px"></th>
+                  </tr>
+                </thead>
+                <tbody id="cartGridBody"></tbody>
+              </table>
             </div>
-            <div class="cart-list" id="cartList"></div>
 
-            <div class="totals">
-              <div class="trow"><span>Subtotal</span><span class="num" id="tSubtotal">$0.00</span></div>
-              <div class="trow"><span>IVA (16%)</span><span class="num" id="tIva">$0.00</span></div>
-              <div class="trow big"><span>Total</span><span class="num" id="tTotal">$0.00</span></div>
-              <div class="trow bs"><span>Equivalente</span><span class="num" id="tTotalBs">Bs 0,00</span></div>
-              <button class="checkout-btn" id="btnCobrar" disabled>
-                <span>Cobrar</span>
-                <span class="num" id="btnCobrarTotal">$0.00</span>
-              </button>
-              <button class="clear-link" id="btnClear">Cancelar venta</button>
+          </div>
+          <div class="vb-right">
+            <div class="vb-right-title">Resumen de venta</div>
+            <div class="vb-totals">
+              <div><span>Subtotal</span><b class="num" id="tSubtotal">$0.00</b></div>
+              <div><span>IVA (16%)</span><b class="num" id="tIva">$0.00</b></div>
+              <div><span>Bs.</span><b class="num" id="tTotalBs">Bs 0,00</b></div>
+              <div class="tot"><span>Total</span><b class="num" id="tTotal">$0.00</b></div>
             </div>
+            <button class="checkout-btn" id="btnCobrar" disabled>
+              <span>Cobrar</span>
+              <span class="num" id="btnCobrarTotal">$0.00</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" id="btnClear" style="width:100%;margin-top:10px">Cancelar venta</button>
+          </div>
           </div>
         </div>
       </div>
@@ -872,8 +863,6 @@ const state = {
   cliente:null,
   cart:[],
   facturaNum:1,
-  categoriaActiva:'Todos',
-  busquedaProducto:'',
   metodoPago:null,
   currentView:'venta',
   entradaProductoSel:null,
@@ -884,6 +873,7 @@ let STOCK_ENTRIES = [];
 let confirmCallback = null;
 
 /* ---------- HELPERS ---------- */
+const round2 = n => Math.round(n*100)/100;
 const fmtUsd = n => '$' + n.toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtBs = n => 'Bs ' + n.toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const byId = id => document.getElementById(id);
@@ -904,10 +894,10 @@ function isSameDay(d1,d2){
 }
 
 /* ---------- ICONOS ESTÁTICOS ---------- */
-byId('iconSearchProd').innerHTML = icon(ICONS.search,16);
-byId('iconSearchClient').innerHTML = icon(ICONS.search,16);
-byId('iconSearchProdView').innerHTML = icon(ICONS.search,16);
-byId('iconSearchEntrada').innerHTML = icon(ICONS.search,16);
+byId('iconSearchProd').innerHTML = icon(ICONS.search,14);
+byId('iconSearchClient').innerHTML = icon(ICONS.search,14);
+byId('iconSearchProdView').innerHTML = icon(ICONS.search,14);
+byId('iconSearchEntrada').innerHTML = icon(ICONS.search,14);
 byId('closePagoModal').innerHTML = icon(ICONS.x,18);
 byId('closeProductoModal').innerHTML = icon(ICONS.x,18);
 byId('closeFacturaModal').innerHTML = icon(ICONS.x,16);
@@ -920,17 +910,12 @@ document.querySelector('#cajaScreen .caja-icon').innerHTML = icon(ICONS.lock,24)
 
 /* ---------- SIDEBAR COLAPSABLE ---------- */
 let sidebarCollapsed = true;
-try {
-  const saved = localStorage.getItem('afivasSidebarCollapsed');
-  if(saved !== null) sidebarCollapsed = saved === 'true';
-} catch(e){}
 function applySidebarState(){
   byId('sidebar').classList.toggle('collapsed', sidebarCollapsed);
 }
 byId('btnToggleSidebar').addEventListener('click', ()=>{
   sidebarCollapsed = !sidebarCollapsed;
   applySidebarState();
-  try { localStorage.setItem('afivasSidebarCollapsed', sidebarCollapsed); } catch(e){}
 });
 applySidebarState();
 
@@ -993,12 +978,12 @@ byId('loginForm').addEventListener('submit', e=>{
 
 /* ---------- APERTURA CAJA ---------- */
 byId('btnAperturar').addEventListener('click', ()=>{
-  state.tasa = parseFloat(byId('tasaCambio').value) || 189.35;
+  state.tasa = parseFloat(byId('tasaCambio').value.replace(',','.')) || 189.35;
   byId('sidebarTasa').textContent = 'Tasa: ' + state.tasa.toLocaleString('es-VE',{minimumFractionDigits:2}) + ' Bs/$';
   showScreen('appScreen');
   renderSidebarNav();
   switchView('venta');
-  toast('Caja aperturada con Bs ' + (parseFloat(byId('cajaMonto').value)||0).toLocaleString('es-VE'),'success');
+  toast('Caja aperturada correctamente','success');
   tickClock();
 });
 
@@ -1026,70 +1011,36 @@ function switchView(view){
   byId('view'+view.charAt(0).toUpperCase()+view.slice(1)).classList.add('active');
   byId('viewTitle').textContent = VIEW_TITLES[view];
   renderSidebarNav();
-  if(view==='venta'){ renderCategoryChips(); renderProducts(); renderCart(); renderClientSelected(); }
+  if(view==='venta'){ renderCart(); renderClientSelected(); }
   else if(view==='productos'){ renderProductosView(); }
   else if(view==='entrada'){ renderEntradaView(); }
   else if(view==='reportes'){ renderReportesView(); }
 }
 
-/* ---------- CATEGORÍAS (venta) ---------- */
-function renderCategoryChips(){
-  const cats = ['Todos', ...Object.keys(CATS)];
-  byId('categoryChips').innerHTML = cats.map(c=>
-    `<button class="chip ${c===state.categoriaActiva?'active':''}" data-cat="${c}">${c}</button>`
-  ).join('');
-  byId('categoryChips').querySelectorAll('.chip').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      state.categoriaActiva = btn.dataset.cat;
-      renderCategoryChips();
-      renderProducts();
+/* ---------- BÚSQUEDA DE PRODUCTO (venta) ---------- */
+function renderProductDropdown(q){
+  const dd = byId('productDropdown');
+  const query = q.trim().toLowerCase();
+  if(!query){ dd.style.display='none'; return; }
+  const list = PRODUCTS.filter(p=>p.codigo.toLowerCase().includes(query)||p.desc.toLowerCase().includes(query)).slice(0,8);
+  dd.innerHTML = list.length ? list.map(p=>{
+    const estado = p.existencia===0 ? 'Agotado' : p.existencia<=3 ? `¡Quedan ${p.existencia}!` : `Exist: ${p.existencia}`;
+    return `<div class="dropdown-item" data-codigo="${p.codigo}"><b>${p.desc}</b><span>${p.codigo} · ${fmtUsd(p.precio)} · ${estado}</span></div>`;
+  }).join('') : `<div class="dropdown-empty">Sin coincidencias</div>`;
+  dd.style.display='block';
+  dd.querySelectorAll('.dropdown-item').forEach(it=>{
+    it.addEventListener('click',()=>{
+      addToCart(it.dataset.codigo);
+      byId('productSearch').value='';
+      dd.style.display='none';
+      byId('productSearch').focus();
     });
   });
 }
+byId('productSearch').addEventListener('input', e=>renderProductDropdown(e.target.value));
+byId('productSearch').addEventListener('focus', e=>renderProductDropdown(e.target.value));
 
-/* ---------- PRODUCTOS (grid venta) ---------- */
-function renderProducts(){
-  const q = state.busquedaProducto.trim().toLowerCase();
-  let list = PRODUCTS.filter(p=>{
-    const matchCat = state.categoriaActiva==='Todos' || p.cat===state.categoriaActiva;
-    const matchQ = !q || p.codigo.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q);
-    return matchCat && matchQ;
-  });
-  const grid = byId('productGrid');
-  if(list.length===0){
-    grid.style.display = 'flex';
-    grid.innerHTML = `<div class="empty-state"><div class="ic">${icon(ICONS.search,22)}</div><b>Sin resultados</b><span>No se encontraron productos con ese criterio</span></div>`;
-    return;
-  }
-  grid.style.display = 'grid';
-  grid.innerHTML = list.map(p=>{
-    const catInfo = CATS[p.cat];
-    let badge = `<span class="badge ok">En stock</span>`;
-    if(p.existencia===0) badge = `<span class="badge out">Agotado</span>`;
-    else if(p.existencia<=3) badge = `<span class="badge low">¡Quedan ${p.existencia}!</span>`;
-    return `
-    <div class="pcard ${p.existencia===0?'disabled':''}" data-codigo="${p.codigo}">
-      <div class="plusfab">${icon(ICONS.plus,14)}</div>
-      <div class="ptile" style="background:${catInfo.color}">${icon(ICONS[catInfo.icon],20)}</div>
-      <div class="pname">${p.desc}</div>
-      <div class="pcode">${p.codigo}</div>
-      <div class="pfoot">
-        <span class="pprice num">${fmtUsd(p.precio)}</span>
-        ${badge}
-      </div>
-    </div>`;
-  }).join('');
-  grid.querySelectorAll('.pcard').forEach(card=>{
-    card.addEventListener('click',()=>addToCart(card.dataset.codigo));
-  });
-}
-
-byId('productSearch').addEventListener('input', e=>{
-  state.busquedaProducto = e.target.value;
-  renderProducts();
-});
-
-/* ---------- CARRITO ---------- */
+/* ---------- CARRITO (grid de venta) ---------- */
 function addToCart(codigo){
   const p = PRODUCTS.find(x=>x.codigo===codigo);
   if(!p || p.existencia<=0){ toast('Producto agotado','error'); return; }
@@ -1099,18 +1050,18 @@ function addToCart(codigo){
   if(item){ item.cantidad++; } else { state.cart.push({codigo:p.codigo,desc:p.desc,precio:p.precio,cantidad:1}); }
   const restante = p.existencia - (enCarrito+1);
   if(restante<=3 && restante>0) toast(`Quedan solo ${restante} unidades de "${p.desc}"`,'warning');
-  toast(`"${p.desc}" agregado al carrito`,'success','cart');
+  toast(`"${p.desc}" agregado a la venta`,'success','cart');
   renderCart();
 }
 
-function changeQty(codigo,delta){
+function setQty(codigo,valor){
   const item = state.cart.find(x=>x.codigo===codigo);
   const p = PRODUCTS.find(x=>x.codigo===codigo);
   if(!item) return;
-  const next = item.cantidad + delta;
-  if(next<=0){ state.cart = state.cart.filter(x=>x.codigo!==codigo); }
-  else if(next>p.existencia){ toast('No hay más existencia disponible','warning'); return; }
-  else { item.cantidad = next; }
+  const qty = Math.floor(Number(valor));
+  if(!qty || qty<=0){ removeFromCart(codigo); return; }
+  if(qty>p.existencia){ toast('No hay más existencia disponible','warning'); item.cantidad=p.existencia; renderCart(); return; }
+  item.cantidad = qty;
   renderCart();
 }
 
@@ -1120,42 +1071,36 @@ function removeFromCart(codigo){
 }
 
 function renderCart(){
-  const list = byId('cartList');
+  const body = byId('cartGridBody');
   byId('cartCount').textContent = state.cart.reduce((a,x)=>a+x.cantidad,0);
   if(state.cart.length===0){
-    list.innerHTML = `<div class="empty-state"><div class="ic">${icon(ICONS.cart,22)}</div><b>Carrito vacío</b><span>Agrega productos para comenzar</span></div>`;
+    body.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ic">${icon(ICONS.cart,22)}</div><b>Sin productos</b><span>Busca un producto arriba y selecciónalo para agregarlo</span></div></td></tr>`;
   } else {
-    list.innerHTML = state.cart.map(item=>`
-      <div class="cart-row">
-        <div class="cinfo">
-          <b>${item.desc}</b>
-          <span>${item.codigo} · ${fmtUsd(item.precio)} c/u</span>
-        </div>
-        <div class="qty-stepper">
-          <button data-act="minus" data-codigo="${item.codigo}">${icon(ICONS.minus,12)}</button>
-          <span>${item.cantidad}</span>
-          <button data-act="plus" data-codigo="${item.codigo}">${icon(ICONS.plus,12)}</button>
-        </div>
-        <div class="cprice num">${fmtUsd(item.precio*item.cantidad)}</div>
-        <button class="cdel" data-act="del" data-codigo="${item.codigo}">${icon(ICONS.trash,15)}</button>
-      </div>
+    body.innerHTML = state.cart.map((item,i)=>`
+      <tr>
+        <td class="num">${i+1}</td>
+        <td class="num">${item.codigo}</td>
+        <td>${item.desc}</td>
+        <td class="num">${fmtUsd(item.precio)}</td>
+        <td><input type="number" class="vb-qty-input" min="1" value="${item.cantidad}" data-codigo="${item.codigo}"></td>
+        <td class="num">${fmtUsd(item.precio*item.cantidad)}</td>
+        <td><button class="vb-row-del" data-codigo="${item.codigo}" title="Quitar">${icon(ICONS.x,13)}</button></td>
+      </tr>
     `).join('');
-    list.querySelectorAll('[data-act]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const c = btn.dataset.codigo;
-        if(btn.dataset.act==='plus') changeQty(c,1);
-        else if(btn.dataset.act==='minus') changeQty(c,-1);
-        else removeFromCart(c);
-      });
+    body.querySelectorAll('.vb-qty-input').forEach(inp=>{
+      inp.addEventListener('change', ()=>setQty(inp.dataset.codigo, inp.value));
+    });
+    body.querySelectorAll('.vb-row-del').forEach(btn=>{
+      btn.addEventListener('click',()=>removeFromCart(btn.dataset.codigo));
     });
   }
   calcTotals();
 }
 
 function calcTotals(){
-  const subtotal = state.cart.reduce((a,x)=>a+x.precio*x.cantidad,0);
-  const iva = subtotal*0.16;
-  const total = subtotal+iva;
+  const subtotal = round2(state.cart.reduce((a,x)=>a+x.precio*x.cantidad,0));
+  const iva = round2(subtotal*0.16);
+  const total = round2(subtotal+iva);
   byId('tSubtotal').textContent = fmtUsd(subtotal);
   byId('tIva').textContent = fmtUsd(iva);
   byId('tTotal').textContent = fmtUsd(total);
@@ -1181,7 +1126,7 @@ function renderClientSelected(){
     byId('clientSelectedWrap').innerHTML = `
       <div class="client-selected">
         <div class="avatar">${initials}</div>
-        <div class="info"><b>${state.cliente.nombre}</b><span>C.I. ${state.cliente.cedula}</span></div>
+        <div class="info"><b>${state.cliente.nombre}</b><span>${state.cliente.cedula}</span></div>
         <button id="btnChangeClient">${icon(ICONS.x,15)}</button>
       </div>`;
     byId('btnChangeClient').addEventListener('click',()=>{
@@ -1220,6 +1165,7 @@ byId('clientSearch').addEventListener('focus', e=>renderClientDropdown(e.target.
 byId('clientSearch').addEventListener('input', e=>renderClientDropdown(e.target.value));
 document.addEventListener('click', e=>{
   if(!byId('clientSearchWrap').contains(e.target)) byId('clientDropdown').style.display='none';
+  if(!byId('productSearchWrap').contains(e.target)) byId('productDropdown').style.display='none';
   if(!byId('entradaProductSearch').contains(e.target)) byId('entradaDropdown').style.display='none';
 });
 
