@@ -1082,7 +1082,7 @@ function renderCart(){
         <td class="num">${item.codigo}</td>
         <td>${item.desc}</td>
         <td class="num">${fmtUsd(item.precio)}</td>
-        <td><input type="number" class="vb-qty-input" min="1" value="${item.cantidad}" data-codigo="${item.codigo}"></td>
+        <td><input type="text" inputmode="numeric" class="vb-qty-input" value="${item.cantidad}" data-codigo="${item.codigo}"></td>
         <td class="num">${fmtUsd(item.precio*item.cantidad)}</td>
         <td><button class="vb-row-del" data-codigo="${item.codigo}" title="Quitar">${icon(ICONS.x,13)}</button></td>
       </tr>
