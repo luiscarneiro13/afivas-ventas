@@ -7,7 +7,8 @@ const api = {
     chrome: process.versions.chrome,
     electron: process.versions.electron
   },
-  scanComPorts: () => ipcRenderer.invoke('ports:scan')
+  scanComPorts: () => ipcRenderer.invoke('ports:scan'),
+  testTfhka: (comPort) => ipcRenderer.invoke('tfhka:test', comPort)
 }
 
 if (process.contextIsolated) {

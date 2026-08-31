@@ -9,10 +9,11 @@ const selectedPort = ref('')
 const scanning = ref(false)
 const scanned = ref(false)
 
-// Conectores fiscales disponibles en /Conectores (DLLs de integración).
-// El resultado de la prueba de cada uno se rellena cuando se conecte la
-// lógica real de prueba; hasta entonces permanece oculto.
+// Conectores fiscales disponibles en /Conectores. La impresora fiscal
+// instalada es TFHKA (tfhkaif.dll) — es el único con prueba habilitada;
+// el resto queda deshabilitado hasta confirmar qué marca corresponde.
 const CONECTORES = [
+  'tfhkaif',
   'BemaFI32',
   'BemaMFD2ES',
   'dtp2usb',
@@ -20,15 +21,27 @@ const CONECTORES = [
   'HybridFiscal',
   'mscifw32',
   'pnpdll',
-  'tfhkaif',
   'vmax3fpi',
   'winfis32'
 ]
 
-const testStatus = ref({})
+// La prueba de tfhkaif solo abre el puerto, hace ping (CheckFprinter) y lee
+// el estado (ReadFpStatus) — nunca envía comandos de impresión ni toca la
+// memoria fiscal.
+const tfhkaTesting = ref(false)
+const tfhkaResult = ref(null) // { ok: boolean, message: string } | null
 
-function probarConector(nombre) {
-  // TODO: integrar la prueba real del conector (invocación a la DLL vía IPC)
+async function probarTfhka() {
+  tfhkaTesting.value = true
+  tfhkaResult.value = null
+  try {
+    tfhkaResult.value = (await window.api?.testTfhka?.(selectedPort.value)) || {
+      ok: false,
+      message: 'API no disponible'
+    }
+  } finally {
+    tfhkaTesting.value = false
+  }
 }
 
 async function scan() {
@@ -77,10 +90,25 @@ onMounted(scan)
         <div class="cfg-subtitle">Conectores</div>
         <div class="connector-list">
           <div v-for="c in CONECTORES" :key="c" class="connector-row">
-            <span class="connector-name">{{ c }}</span>
-            <BaseButton variant="ghost" size="sm" @click="probarConector(c)">Probar</BaseButton>
-            <span v-if="testStatus[c] === 'success'" class="connector-status ok">Éxito</span>
-            <span v-else-if="testStatus[c] === 'error'" class="connector-status err">Error</span>
+            <span class="connector-name" :class="{ disabled: c !== 'tfhkaif' }">{{ c }}</span>
+
+            <template v-if="c === 'tfhkaif'">
+              <BaseButton
+                variant="ghost"
+                size="sm"
+                :disabled="tfhkaTesting || !selectedPort"
+                @click="probarTfhka"
+              >
+                {{ tfhkaTesting ? 'Probando...' : 'Probar' }}
+              </BaseButton>
+              <span v-if="tfhkaResult?.ok === true" class="connector-status ok">
+                Éxito — {{ tfhkaResult.message }}
+              </span>
+              <span v-else-if="tfhkaResult?.ok === false" class="connector-status err">
+                Error — {{ tfhkaResult.message }}
+              </span>
+            </template>
+            <span v-else class="connector-disabled">Deshabilitado</span>
           </div>
         </div>
       </div>
@@ -156,11 +184,12 @@ onMounted(scan)
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: 480px;
+  max-width: 560px;
 }
 .connector-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 10px 4px;
   border-bottom: 1px solid var(--border);
@@ -174,9 +203,19 @@ onMounted(scan)
   font-weight: 500;
   color: var(--text);
 }
+.connector-name.disabled {
+  color: #c2c2cc;
+}
+.connector-disabled {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #c2c2cc;
+  text-decoration: line-through;
+}
 .connector-status {
   font-size: 12px;
   font-weight: 700;
+  word-break: break-word;
 }
 .connector-status.ok {
   color: var(--success);

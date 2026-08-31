@@ -9,11 +9,12 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps && npm install @koromix/koffi-win32-ia32@3.1.6 --no-save --force",
     "build:win32": "electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win --ia32",
     "build:win32:portable": "electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win portable --ia32"
   },
   "dependencies": {
+    "koffi": "3.1.6",
     "pinia": "^2.2.6",
     "vue": "^3.5.13",
     "vue-router": "^4.4.5"
@@ -36,17 +37,33 @@
     },
     "files": [
       "out/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/koffi/**/*",
+      "node_modules/@koromix/koffi-win32-ia32/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**/*",
+      "node_modules/@koromix/koffi-win32-ia32/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "Conectores/tfhkaif.dll",
+        "to": "Conectores/tfhkaif.dll"
+      }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["ia32"]
+          "arch": [
+            "ia32"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["ia32"]
+          "arch": [
+            "ia32"
+          ]
         }
       ],
       "icon": "build/icon.ico"
