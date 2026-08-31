@@ -9,3 +9,6 @@
    (instalador NSIS y versión portable, cross-compilation con Wine).
 3. [03-ESTRUCTURA_PROYECTO.md](./03-ESTRUCTURA_PROYECTO.md) — Estructura de
    carpetas del proyecto, referencia rápida.
+4. [04-INTEGRACION_TFHKA.md](./04-INTEGRACION_TFHKA.md) — Integración con la
+   impresora fiscal (Aclas PP9-Plus / protocolo TFHKA vía `tfhkaif.dll`):
+   firmas de función, prueba de conexión y comandos de factura/reportes X/Z.

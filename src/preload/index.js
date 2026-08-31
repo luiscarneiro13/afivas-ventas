@@ -8,7 +8,8 @@ const api = {
     electron: process.versions.electron
   },
   scanComPorts: () => ipcRenderer.invoke('ports:scan'),
-  testTfhka: (comPort) => ipcRenderer.invoke('tfhka:test', comPort)
+  testTfhka: (comPort) => ipcRenderer.invoke('tfhka:test', comPort),
+  printReporteX: (comPort) => ipcRenderer.invoke('tfhka:printReporteX', comPort)
 }
 
 if (process.contextIsolated) {

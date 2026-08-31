@@ -44,6 +44,24 @@ async function probarTfhka() {
   }
 }
 
+// Reporte X: consulta no fiscal, no resetea acumulados. Solo se ofrece
+// tras una prueba de conexión exitosa.
+const reporteXPrinting = ref(false)
+const reporteXResult = ref(null) // { ok: boolean, message: string } | null
+
+async function imprimirReporteX() {
+  reporteXPrinting.value = true
+  reporteXResult.value = null
+  try {
+    reporteXResult.value = (await window.api?.printReporteX?.(selectedPort.value)) || {
+      ok: false,
+      message: 'API no disponible'
+    }
+  } finally {
+    reporteXPrinting.value = false
+  }
+}
+
 async function scan() {
   scanning.value = true
   try {
@@ -96,7 +114,7 @@ onMounted(scan)
               <BaseButton
                 variant="ghost"
                 size="sm"
-                :disabled="tfhkaTesting || !selectedPort"
+                :disabled="tfhkaTesting || !selectedPort || tfhkaResult?.ok === true"
                 @click="probarTfhka"
               >
                 {{ tfhkaTesting ? 'Probando...' : 'Probar' }}
@@ -107,6 +125,23 @@ onMounted(scan)
               <span v-else-if="tfhkaResult?.ok === false" class="connector-status err">
                 Error — {{ tfhkaResult.message }}
               </span>
+
+              <template v-if="tfhkaResult?.ok === true">
+                <BaseButton
+                  variant="ghost"
+                  size="sm"
+                  :disabled="reporteXPrinting"
+                  @click="imprimirReporteX"
+                >
+                  {{ reporteXPrinting ? 'Imprimiendo...' : 'Imprimir reporte X' }}
+                </BaseButton>
+                <span v-if="reporteXResult?.ok === true" class="connector-status ok">
+                  Éxito — {{ reporteXResult.message }}
+                </span>
+                <span v-else-if="reporteXResult?.ok === false" class="connector-status err">
+                  Error — {{ reporteXResult.message }}
+                </span>
+              </template>
             </template>
             <span v-else class="connector-disabled">Deshabilitado</span>
           </div>

@@ -12,13 +12,12 @@ function tfhkaDllPath() {
     : join(process.resourcesPath, 'Conectores/tfhkaif.dll')
 }
 
-// Prueba de solo conexión con la impresora fiscal TFHKA: abre el puerto,
-// hace ping (CheckFprinter) y lee su estado (ReadFpStatus). Nunca llama a
-// SendCmd ni a ninguna función que imprima o escriba en memoria fiscal,
-// para no arriesgar el estado fiscal del equipo.
-async function testTfhka(comPort) {
+// Carga tfhkaif.dll, abre el puerto indicado, ejecuta `run(lib)` y siempre
+// cierra el puerto y descarga la librería al terminar. Centraliza el
+// manejo de errores común a toda operación contra la impresora fiscal.
+async function withTfhka(comPort, run) {
   if (process.platform !== 'win32') {
-    return { ok: false, message: 'La prueba solo puede ejecutarse en Windows.' }
+    return { ok: false, message: 'Esta operación solo puede ejecutarse en Windows.' }
   }
   if (!comPort) {
     return { ok: false, message: 'Selecciona un puerto COM primero.' }
@@ -34,25 +33,13 @@ async function testTfhka(comPort) {
   try {
     const OpenFpctrl = lib.func('bool __stdcall OpenFpctrl(const char *lpPortName)')
     const CloseFpctrl = lib.func('bool __stdcall CloseFpctrl()')
-    const CheckFprinter = lib.func('bool __stdcall CheckFprinter()')
-    const ReadFpStatus = lib.func('bool __stdcall ReadFpStatus(_Out_ int *status, _Out_ int *error)')
 
     if (!OpenFpctrl(comPort)) {
       return { ok: false, message: `No se pudo abrir el puerto ${comPort}.` }
     }
 
     try {
-      if (!CheckFprinter()) {
-        return { ok: false, message: 'La impresora fiscal no respondió (CheckFprinter).' }
-      }
-
-      const statusOut = [0]
-      const errorOut = [0]
-      if (!ReadFpStatus(statusOut, errorOut)) {
-        return { ok: false, message: 'No se pudo leer el estado de la impresora.' }
-      }
-
-      return { ok: true, message: `Conectado. Estado: ${statusOut[0]}, Error: ${errorOut[0]}` }
+      return await run(lib)
     } finally {
       CloseFpctrl()
     }
@@ -61,6 +48,48 @@ async function testTfhka(comPort) {
   } finally {
     lib.unload()
   }
+}
+
+// Prueba de solo conexión con la impresora fiscal TFHKA: hace ping
+// (CheckFprinter) y lee su estado (ReadFpStatus). Nunca llama a SendCmd ni
+// a ninguna función que imprima o escriba en memoria fiscal, para no
+// arriesgar el estado fiscal del equipo.
+function testTfhka(comPort) {
+  return withTfhka(comPort, (lib) => {
+    const CheckFprinter = lib.func('bool __stdcall CheckFprinter()')
+    const ReadFpStatus = lib.func('bool __stdcall ReadFpStatus(_Out_ int *status, _Out_ int *error)')
+
+    if (!CheckFprinter()) {
+      return { ok: false, message: 'La impresora fiscal no respondió (CheckFprinter).' }
+    }
+
+    const statusOut = [0]
+    const errorOut = [0]
+    if (!ReadFpStatus(statusOut, errorOut)) {
+      return { ok: false, message: 'No se pudo leer el estado de la impresora.' }
+    }
+
+    return { ok: true, message: `Conectado. Estado: ${statusOut[0]}, Error: ${errorOut[0]}` }
+  })
+}
+
+// Imprime el Reporte X: consulta no fiscal del acumulado del día, no
+// resetea nada (a diferencia del Reporte Z). Comando "I0X" vía SendCmd.
+function printReporteX(comPort) {
+  return withTfhka(comPort, (lib) => {
+    const SendCmd = lib.func('bool __stdcall SendCmd(_Out_ int *status, _Out_ int *error, const char *cmd)')
+
+    const statusOut = [0]
+    const errorOut = [0]
+    if (!SendCmd(statusOut, errorOut, 'I0X')) {
+      return {
+        ok: false,
+        message: `No se pudo imprimir el Reporte X (estado: ${statusOut[0]}, error: ${errorOut[0]}).`
+      }
+    }
+
+    return { ok: true, message: 'Reporte X enviado a la impresora.' }
+  })
 }
 
 // Los puertos COM activos quedan registrados por Windows en esta clave del
@@ -124,6 +153,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('ports:scan', scanComPorts)
   ipcMain.handle('tfhka:test', (_event, comPort) => testTfhka(comPort))
+  ipcMain.handle('tfhka:printReporteX', (_event, comPort) => printReporteX(comPort))
 
   createWindow()
 
