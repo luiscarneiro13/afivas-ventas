@@ -10,8 +10,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
-    "build:win32": "electron-vite build && electron-builder --win --ia32",
-    "build:win32:portable": "electron-vite build && electron-builder --win portable --ia32"
+    "build:win32": "electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win --ia32",
+    "build:win32:portable": "electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win portable --ia32"
   },
   "dependencies": {
     "pinia": "^2.2.6",

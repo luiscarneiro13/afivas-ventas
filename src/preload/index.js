@@ -1,13 +1,13 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
-// API expuesta al renderer. Aún no hay backend/IPC: se deja el puente
-// preparado para cuando se integren canales `ipcRenderer.invoke(...)`.
+// API expuesta al renderer.
 const api = {
   versions: {
     node: process.versions.node,
     chrome: process.versions.chrome,
     electron: process.versions.electron
-  }
+  },
+  scanComPorts: () => ipcRenderer.invoke('ports:scan')
 }
 
 if (process.contextIsolated) {

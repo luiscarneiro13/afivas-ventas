@@ -9,6 +9,7 @@ import VentaView from '@renderer/views/VentaView.vue'
 import ProductosView from '@renderer/views/ProductosView.vue'
 import EntradaView from '@renderer/views/EntradaView.vue'
 import ReportesView from '@renderer/views/ReportesView.vue'
+import ConfiguracionView from '@renderer/views/ConfiguracionView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -22,7 +23,8 @@ const routes = [
       { path: 'venta', name: 'venta', component: VentaView, meta: { title: 'Venta' } },
       { path: 'productos', name: 'productos', component: ProductosView, meta: { title: 'Productos' } },
       { path: 'entrada', name: 'entrada', component: EntradaView, meta: { title: 'Entrada de Productos' } },
-      { path: 'reportes', name: 'reportes', component: ReportesView, meta: { title: 'Reportes' } }
+      { path: 'reportes', name: 'reportes', component: ReportesView, meta: { title: 'Reportes' } },
+      { path: 'configuracion', name: 'configuracion', component: ConfiguracionView, meta: { title: 'Configuración' } }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/login' }

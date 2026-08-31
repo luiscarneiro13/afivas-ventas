@@ -1,8 +1,31 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { exec } from 'child_process'
 import icon from '../../resources/icon.png?asset'
 
 const isDev = !app.isPackaged
+
+// Los puertos COM activos quedan registrados por Windows en esta clave del
+// registro (DEVICEMAP\SERIALCOMM), sea el puerto físico o un adaptador
+// USB-serial con su driver instalado. Es más fiable que `wmic` (deprecado
+// y ausente en builds recientes de Windows).
+function scanComPorts() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve([])
+      return
+    }
+    exec('reg query "HKLM\\HARDWARE\\DEVICEMAP\\SERIALCOMM"', (error, stdout) => {
+      if (error) {
+        resolve([])
+        return
+      }
+      const ports = [...new Set([...stdout.matchAll(/COM\d+/g)].map((m) => m[0]))]
+      ports.sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)))
+      resolve(ports)
+    })
+  })
+}
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -40,6 +63,8 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setAppUserModelId('com.afivas.ventas')
+
+  ipcMain.handle('ports:scan', scanComPorts)
 
   createWindow()
 
