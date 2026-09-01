@@ -61,6 +61,11 @@ function registrar() {
 
 <template>
   <div class="view-content">
+    <router-link :to="{ name: 'configuracion' }" class="back-link">
+      <AppIcon name="chevron" :size="14" />
+      Volver a Configuración
+    </router-link>
+
     <div class="entrada-grid">
       <div class="card">
         <h3>Registrar entrada</h3>
@@ -145,6 +150,23 @@ function registrar() {
   width: 100%;
   overflow-y: auto;
   padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 4px;
+}
+.back-link:hover {
+  color: var(--primary);
 }
 
 .entrada-grid {

@@ -10,6 +10,10 @@ import ProductosView from '@renderer/views/ProductosView.vue'
 import EntradaView from '@renderer/views/EntradaView.vue'
 import ReportesView from '@renderer/views/ReportesView.vue'
 import ConfiguracionView from '@renderer/views/ConfiguracionView.vue'
+import ConfiguracionMaquinaFiscalView from '@renderer/views/ConfiguracionMaquinaFiscalView.vue'
+import ConfiguracionCategoriasView from '@renderer/views/ConfiguracionCategoriasView.vue'
+import ConfiguracionProveedoresView from '@renderer/views/ConfiguracionProveedoresView.vue'
+import ConfiguracionClientesView from '@renderer/views/ConfiguracionClientesView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -22,9 +26,33 @@ const routes = [
       { path: '', redirect: { name: 'venta' } },
       { path: 'venta', name: 'venta', component: VentaView, meta: { title: 'Venta' } },
       { path: 'productos', name: 'productos', component: ProductosView, meta: { title: 'Productos' } },
-      { path: 'entrada', name: 'entrada', component: EntradaView, meta: { title: 'Entrada de Productos' } },
-      { path: 'reportes', name: 'reportes', component: ReportesView, meta: { title: 'Reportes' } },
-      { path: 'configuracion', name: 'configuracion', component: ConfiguracionView, meta: { title: 'Configuración' } }
+      { path: 'entrada', name: 'entrada', component: EntradaView, meta: { title: 'Carga de Inventario' } },
+      { path: 'reportes', name: 'reportes', component: ReportesView, meta: { title: 'Gráficas' } },
+      { path: 'configuracion', name: 'configuracion', component: ConfiguracionView, meta: { title: 'Configuración' } },
+      {
+        path: 'configuracion/maquina-fiscal',
+        name: 'configuracion-maquina-fiscal',
+        component: ConfiguracionMaquinaFiscalView,
+        meta: { title: 'Configuración · Máquina fiscal' }
+      },
+      {
+        path: 'configuracion/categorias',
+        name: 'configuracion-categorias',
+        component: ConfiguracionCategoriasView,
+        meta: { title: 'Configuración · Categorías de productos' }
+      },
+      {
+        path: 'configuracion/proveedores',
+        name: 'configuracion-proveedores',
+        component: ConfiguracionProveedoresView,
+        meta: { title: 'Configuración · Proveedores' }
+      },
+      {
+        path: 'configuracion/clientes',
+        name: 'configuracion-clientes',
+        component: ConfiguracionClientesView,
+        meta: { title: 'Configuración · Clientes' }
+      }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/login' }

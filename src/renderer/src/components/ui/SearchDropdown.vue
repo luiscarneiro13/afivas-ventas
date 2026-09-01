@@ -75,32 +75,8 @@ defineExpose({ close: () => (open.value = false) })
 </template>
 
 <style scoped>
-.searchbar {
-  position: relative;
-}
-.sicon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  display: flex;
-}
-.searchbar input {
-  width: 100%;
-  padding: 6px 14px 6px 36px;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  font-size: 13px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  transition: 0.15s;
-}
-.searchbar input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px var(--primary-light);
-}
+/* Altura y estilo del input heredados de la regla global .searchbar
+   en assets/styles/base.css — no redefinir aquí. */
 .kbd {
   position: absolute;
   right: 12px;

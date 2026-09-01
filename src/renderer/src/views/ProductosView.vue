@@ -1,8 +1,9 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useCatalogStore } from '@renderer/stores/catalog'
 import { useCajaStore } from '@renderer/stores/caja'
 import { useUiStore } from '@renderer/stores/ui'
+import { useCategoriasStore } from '@renderer/stores/categorias'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
@@ -10,14 +11,33 @@ import CatChip from '@renderer/components/ui/CatChip.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import ProductoModal from '@renderer/components/productos/ProductoModal.vue'
+import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import { fmtUsd, fmtBs } from '@renderer/utils/format'
 
 const catalog = useCatalogStore()
 const caja = useCajaStore()
 const ui = useUiStore()
+const categorias = useCategoriasStore()
+
+onMounted(() => categorias.fetchAll())
 
 const search = ref('')
+const catQuery = ref('')
 const catFilter = ref('Todos')
+
+const catItems = computed(() => {
+  const q = catQuery.value.trim().toLowerCase()
+  return q ? categorias.items.filter((c) => c.nombre.toLowerCase().includes(q)) : categorias.items
+})
+
+function selectCategoria(c) {
+  catFilter.value = c.nombre
+  catQuery.value = c.nombre
+}
+
+watch(catQuery, (val) => {
+  if (!val.trim()) catFilter.value = 'Todos'
+})
 
 const filteredProducts = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -69,13 +89,34 @@ function confirmDelete() {
           <span class="sicon"><AppIcon name="search" :size="14" /></span>
           <input v-model="search" type="text" placeholder="Buscar producto..." />
         </div>
-        <select v-model="catFilter" class="select-sm">
-          <option value="Todos">Todas las categorías</option>
-          <option v-for="c in catalog.categoryNames" :key="c" :value="c">{{ c }}</option>
-        </select>
+        <SearchDropdown
+          v-model="catQuery"
+          class="cat-search"
+          placeholder="Buscar categoría..."
+          :items="catItems"
+          item-key="id"
+          show-on-empty-focus
+          empty-message="Sin categorías"
+          @select="selectCategoria"
+        >
+          <template #item="{ item }">
+            <div class="cat-item">
+              <span class="cat-dot" :style="{ background: item.color }">
+                <AppIcon :name="item.icono" :size="12" />
+              </span>
+              <b>{{ item.nombre }}</b>
+            </div>
+          </template>
+        </SearchDropdown>
+        <button type="button" class="export-btn" title="Exportar a Excel">
+          <AppIcon name="excel" :size="15" />
+        </button>
+        <button type="button" class="export-btn" title="Exportar a PDF">
+          <AppIcon name="pdf" :size="15" />
+        </button>
       </div>
-      <BaseButton variant="primary" @click="openCreate">
-        <AppIcon name="plus" :size="16" />
+      <BaseButton variant="primary" size="sm" @click="openCreate">
+        <AppIcon name="plus" :size="14" />
         Nuevo producto
       </BaseButton>
     </div>
@@ -163,46 +204,28 @@ function confirmDelete() {
 .vt-left .searchbar {
   flex: 1;
   max-width: 340px;
+  align-self: flex-start;
 }
-.searchbar {
-  position: relative;
+.vt-left .cat-search {
+  flex: 1;
+  max-width: 220px;
+  align-self: flex-start;
 }
-.searchbar .sicon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
+.cat-item {
   display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.searchbar input {
-  width: 100%;
-  padding: 11px 14px 11px 36px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  transition: 0.15s;
+.cat-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
 }
-.searchbar input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px var(--primary-light);
-}
-.select-sm {
-  padding: 11px 13px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font-size: 13px;
-  color: var(--text);
-}
-.select-sm:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
 .table-wrap {
   background: var(--surface);
   border: 1px solid var(--border);

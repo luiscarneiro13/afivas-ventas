@@ -34,6 +34,79 @@ textarea {
   background: var(--primary-light);
 }
 
+/* Regla general: todo input de búsqueda del sistema (icono de lupa +
+   campo de texto, envueltos en .searchbar) comparte esta misma altura,
+   sin importar la vista donde se use. */
+.searchbar {
+  position: relative;
+}
+.searchbar .sicon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  display: flex;
+}
+.searchbar input {
+  width: 100%;
+  padding: 6px 14px 6px 36px;
+  border: 1.5px solid var(--surface-high);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: 0.15s;
+}
+.searchbar input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+/* Regla general: todo <select> compacto del sistema (filtros de listado,
+   toolbars, etc.) comparte esta misma altura y apariencia custom. */
+.select-sm {
+  height: 42px;
+  padding: 0 32px 0 13px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2346464f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 13px;
+  color: var(--text);
+}
+.select-sm:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* Regla general: todo botón de exportación (Excel/PDF) del sistema
+   comparte este mismo tamaño de ícono y de botón, sin importar la vista. */
+.export-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  width: 34px;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: 0.15s;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+.export-btn:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
 @keyframes pop {
   from {
     opacity: 0;

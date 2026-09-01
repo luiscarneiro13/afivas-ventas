@@ -4,6 +4,7 @@ import { useSalesStore } from '@renderer/stores/sales'
 import { useCatalogStore } from '@renderer/stores/catalog'
 import { useCajaStore } from '@renderer/stores/caja'
 import { fmtUsd, fmtBs, fmtDateTime, isSameDay } from '@renderer/utils/format'
+import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import StatCard from '@renderer/components/ui/StatCard.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import FacturaModal from '@renderer/components/shared/FacturaModal.vue'
@@ -73,6 +74,11 @@ function itemCount(sale) {
 
 <template>
   <div class="view-content">
+    <router-link :to="{ name: 'configuracion' }" class="back-link">
+      <AppIcon name="chevron" :size="14" />
+      Volver a Configuración
+    </router-link>
+
     <div class="stats-grid">
       <StatCard
         label="Ventas de hoy"
@@ -158,6 +164,27 @@ function itemCount(sale) {
 </template>
 
 <style scoped>
+.view-content {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  padding: 22px 26px;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 4px;
+  margin-bottom: 14px;
+}
+.back-link:hover {
+  color: var(--primary);
+}
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

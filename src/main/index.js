@@ -3,6 +3,9 @@ import { join } from 'path'
 import { exec } from 'child_process'
 import koffi from 'koffi'
 import icon from '../../resources/icon.png?asset'
+import { getDb } from './db/connection.js'
+import { migrateAndSeed } from './db/migrate.js'
+import { registerDbHandlers } from './ipc/db-handlers.js'
 
 const isDev = !app.isPackaged
 
@@ -148,8 +151,12 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   app.setAppUserModelId('com.afivas.ventas')
+
+  const knex = getDb()
+  await migrateAndSeed(knex)
+  registerDbHandlers(knex)
 
   ipcMain.handle('ports:scan', scanComPorts)
   ipcMain.handle('tfhka:test', (_event, comPort) => testTfhka(comPort))
