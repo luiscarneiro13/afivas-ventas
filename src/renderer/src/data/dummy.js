@@ -59,7 +59,6 @@ export const PAY_METHODS = [
 
 export const NAV_ITEMS = [
   { id: 'venta', label: 'Venta', icon: 'cart' },
-  { id: 'productos', label: 'Productos', icon: 'box' },
   { id: 'configuracion', label: 'Configuración', icon: 'settings' }
 ]
 

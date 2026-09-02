@@ -5,12 +5,14 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
 <template>
   <div class="view-content">
     <div class="config-grid">
+      <NavCard icon="box" label="Productos" :to="{ name: 'productos' }" />
       <NavCard icon="printer" label="Máquina fiscal" :to="{ name: 'configuracion-maquina-fiscal' }" />
       <NavCard icon="inbox" label="Carga de inventario" :to="{ name: 'entrada' }" />
       <NavCard icon="bars" label="Gráficas" :to="{ name: 'reportes' }" />
       <NavCard icon="layers" label="Categorías de productos" :to="{ name: 'configuracion-categorias' }" />
       <NavCard icon="truck" label="Proveedores" :to="{ name: 'configuracion-proveedores' }" />
       <NavCard icon="user" label="Clientes" :to="{ name: 'configuracion-clientes' }" />
+      <NavCard icon="lock" label="Usuarios" :to="{ name: 'configuracion-usuarios' }" />
     </div>
   </div>
 </template>

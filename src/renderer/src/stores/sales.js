@@ -24,7 +24,13 @@ export const useSalesStore = defineStore('sales', {
       const catalog = useCatalogStore()
       const numero = this.facturaNum++
       const saleItems = items.map((i) => ({ ...i }))
-      saleItems.forEach((i) => catalog.adjustStock(i.codigo, -i.cantidad))
+      // Ajuste optimista en memoria (catalog.js ya no expone adjustStock:
+      // el stock real se decrementa en BD solo vía stock:registrarEntrada).
+      // Un catalog.fetchAll() posterior sobreescribe esto con el valor real.
+      saleItems.forEach((i) => {
+        const p = catalog.findByCodigo(i.codigo)
+        if (p) p.existencia = Math.max(0, p.existencia - i.cantidad)
+      })
 
       const sale = {
         numero,

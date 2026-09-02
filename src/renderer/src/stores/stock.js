@@ -1,30 +1,33 @@
 import { defineStore } from 'pinia'
 import { useCatalogStore } from './catalog'
-import { seedStockEntries } from '@renderer/data/dummy'
 
 export const useStockStore = defineStore('stock', {
   state: () => ({
-    entries: []
+    entries: [],
+    loading: false
   }),
   actions: {
-    seed() {
-      this.entries = seedStockEntries()
-    },
-    registrarEntrada({ codigo, cantidad, proveedor, usuario }) {
-      const catalog = useCatalogStore()
-      const p = catalog.findByCodigo(codigo)
-      if (!p) return null
-      catalog.adjustStock(codigo, cantidad)
-      const entry = {
-        fecha: new Date(),
-        codigo: p.codigo,
-        desc: p.desc,
-        cantidad,
-        proveedor: proveedor?.trim() || '—',
-        usuario
+    async fetchAll() {
+      this.loading = true
+      try {
+        const rows = (await window.api?.stockList?.()) || []
+        this.entries = rows.map((row) => ({
+          fecha: row.fecha,
+          codigo: row.producto_codigo,
+          desc: row.producto_descripcion,
+          cantidad: row.cantidad,
+          proveedor: row.proveedor,
+          usuario: row.usuario_nombre
+        }))
+      } finally {
+        this.loading = false
       }
-      this.entries.unshift(entry)
-      return entry
+    },
+    async registrarEntrada({ productoId, cantidad, proveedor, nota, usuarioId }) {
+      await window.api.stockRegistrarEntrada({ productoId, cantidad, proveedor, nota, usuarioId })
+      await this.fetchAll()
+      const catalog = useCatalogStore()
+      await catalog.fetchAll()
     }
   }
 })

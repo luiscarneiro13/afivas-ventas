@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useCatalogStore } from '@renderer/stores/catalog'
 import { useStockStore } from '@renderer/stores/stock'
 import { useAuthStore } from '@renderer/stores/auth'
@@ -24,6 +24,17 @@ const cantidad = ref(1)
 const proveedor = ref('')
 const nota = ref('')
 
+onMounted(() => {
+  stock.fetchAll()
+  catalog.fetchAll()
+})
+
+// Si la categoría del producto fue desactivada/eliminada, catalog.categories
+// ya no la incluye — evita que eso rompa la vista.
+function catInfo(catName) {
+  return catalog.categories[catName] || { icon: 'box', color: '#9ca3af' }
+}
+
 function selectProduct(item) {
   selectedProduct.value = item
   searchQuery.value = ''
@@ -37,7 +48,7 @@ function resetForm() {
   nota.value = ''
 }
 
-function registrar() {
+async function registrar() {
   if (!selectedProduct.value) {
     ui.toast('Selecciona un producto', 'error')
     return
@@ -48,14 +59,19 @@ function registrar() {
     return
   }
   const desc = selectedProduct.value.desc
-  stock.registrarEntrada({
-    codigo: selectedProduct.value.codigo,
-    cantidad: cant,
-    proveedor: proveedor.value,
-    usuario: auth.cajero
-  })
-  ui.toast(`Se agregaron ${cant} unidades a "${desc}"`, 'success')
-  resetForm()
+  try {
+    await stock.registrarEntrada({
+      productoId: selectedProduct.value.id,
+      cantidad: cant,
+      proveedor: proveedor.value,
+      nota: nota.value,
+      usuarioId: auth.usuarioId
+    })
+    ui.toast(`Se agregaron ${cant} unidades a "${desc}"`, 'success')
+    resetForm()
+  } catch (e) {
+    ui.toast(e?.message || 'No se pudo registrar la entrada', 'error')
+  }
 }
 </script>
 
@@ -86,8 +102,8 @@ function registrar() {
           </SearchDropdown>
         </div>
         <div v-if="selectedProduct" class="selected-product-box">
-          <div class="ptile-sm" :style="{ background: catalog.categories[selectedProduct.cat].color }">
-            <AppIcon :name="catalog.categories[selectedProduct.cat].icon" :size="15" />
+          <div class="ptile-sm" :style="{ background: catInfo(selectedProduct.cat).color }">
+            <AppIcon :name="catInfo(selectedProduct.cat).icon" :size="15" />
           </div>
           <div class="info">
             <b>{{ selectedProduct.desc }}</b>

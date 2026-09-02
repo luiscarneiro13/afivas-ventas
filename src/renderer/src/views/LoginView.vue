@@ -2,24 +2,22 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@renderer/stores/auth'
-import { useSalesStore } from '@renderer/stores/sales'
-import { useStockStore } from '@renderer/stores/stock'
 import logoUrl from '@renderer/assets/images/logo.png'
 
 const router = useRouter()
 const auth = useAuthStore()
-const sales = useSalesStore()
-const stock = useStockStore()
 
 const user = ref('admin')
 const pass = ref('admin')
 
-function onSubmit() {
-  auth.login(user.value)
-  // Siembra datos de ejemplo (ventas/entradas) una sola vez por sesión.
-  if (!sales.sales.length) sales.seed()
-  if (!stock.entries.length) stock.seed()
-  router.push({ name: 'caja' })
+async function onSubmit() {
+  try {
+    await auth.login(user.value)
+  } finally {
+    // La navegación no debe depender de que el login termine sin errores:
+    // es un acceso demo, siempre debe dejar entrar.
+    router.push({ name: 'caja' })
+  }
 }
 </script>
 

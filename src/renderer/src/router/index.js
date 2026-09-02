@@ -14,6 +14,7 @@ import ConfiguracionMaquinaFiscalView from '@renderer/views/ConfiguracionMaquina
 import ConfiguracionCategoriasView from '@renderer/views/ConfiguracionCategoriasView.vue'
 import ConfiguracionProveedoresView from '@renderer/views/ConfiguracionProveedoresView.vue'
 import ConfiguracionClientesView from '@renderer/views/ConfiguracionClientesView.vue'
+import ConfiguracionUsuariosView from '@renderer/views/ConfiguracionUsuariosView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -25,7 +26,12 @@ const routes = [
     children: [
       { path: '', redirect: { name: 'venta' } },
       { path: 'venta', name: 'venta', component: VentaView, meta: { title: 'Venta' } },
-      { path: 'productos', name: 'productos', component: ProductosView, meta: { title: 'Productos' } },
+      {
+        path: 'configuracion/productos',
+        name: 'productos',
+        component: ProductosView,
+        meta: { title: 'Configuración · Productos' }
+      },
       { path: 'entrada', name: 'entrada', component: EntradaView, meta: { title: 'Carga de Inventario' } },
       { path: 'reportes', name: 'reportes', component: ReportesView, meta: { title: 'Gráficas' } },
       { path: 'configuracion', name: 'configuracion', component: ConfiguracionView, meta: { title: 'Configuración' } },
@@ -52,6 +58,12 @@ const routes = [
         name: 'configuracion-clientes',
         component: ConfiguracionClientesView,
         meta: { title: 'Configuración · Clientes' }
+      },
+      {
+        path: 'configuracion/usuarios',
+        name: 'configuracion-usuarios',
+        component: ConfiguracionUsuariosView,
+        meta: { title: 'Configuración · Usuarios' }
       }
     ]
   },

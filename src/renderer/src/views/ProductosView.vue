@@ -19,7 +19,10 @@ const caja = useCajaStore()
 const ui = useUiStore()
 const categorias = useCategoriasStore()
 
-onMounted(() => categorias.fetchAll())
+onMounted(() => {
+  categorias.fetchAll()
+  catalog.fetchAll()
+})
 
 const search = ref('')
 const catQuery = ref('')
@@ -54,6 +57,12 @@ function badgeInfo(p) {
   return { variant: 'ok', text: 'En stock' }
 }
 
+// Si la categoría del producto fue desactivada/eliminada, catalog.categories
+// ya no la incluye — evita que un solo producto así rompa toda la tabla.
+function catInfo(catName) {
+  return catalog.categories[catName] || { icon: 'box', color: '#9ca3af' }
+}
+
 const modalOpen = ref(false)
 const productoEditando = ref(null)
 
@@ -73,16 +82,25 @@ function askDelete(p) {
   productoAEliminar.value = p
   confirmOpen.value = true
 }
-function confirmDelete() {
+async function confirmDelete() {
   if (!productoAEliminar.value) return
-  catalog.remove(productoAEliminar.value.codigo)
-  ui.toast('Producto eliminado', 'info')
+  try {
+    await catalog.remove(productoAEliminar.value.codigo)
+    ui.toast('Producto eliminado', 'info')
+  } catch (e) {
+    ui.toast(e?.message || 'No se pudo eliminar el producto', 'error')
+  }
   productoAEliminar.value = null
 }
 </script>
 
 <template>
   <div class="view-content">
+    <router-link :to="{ name: 'configuracion' }" class="back-link">
+      <AppIcon name="chevron" :size="14" />
+      Volver a Configuración
+    </router-link>
+
     <div class="view-toolbar">
       <div class="vt-left">
         <div class="searchbar">
@@ -142,8 +160,8 @@ function confirmDelete() {
           <tr v-for="p in filteredProducts" :key="p.codigo">
             <td>
               <div class="prod-cell">
-                <div class="ptile-sm" :style="{ background: catalog.categories[p.cat].color }">
-                  <AppIcon :name="catalog.categories[p.cat].icon" :size="15" />
+                <div class="ptile-sm" :style="{ background: catInfo(p.cat).color }">
+                  <AppIcon :name="catInfo(p.cat).icon" :size="15" />
                 </div>
                 <div>
                   <b>{{ p.desc }}</b>
@@ -151,7 +169,7 @@ function confirmDelete() {
                 </div>
               </div>
             </td>
-            <td><CatChip :label="p.cat" :color="catalog.categories[p.cat].color" /></td>
+            <td><CatChip :label="p.cat" :color="catInfo(p.cat).color" /></td>
             <td class="num">{{ fmtUsd(p.precio) }}</td>
             <td class="num">{{ fmtBs(p.precio * caja.tasa) }}</td>
             <td><BaseBadge :variant="badgeInfo(p).variant">{{ badgeInfo(p).text }}</BaseBadge></td>
@@ -185,6 +203,20 @@ function confirmDelete() {
   width: 100%;
   overflow-y: auto;
   padding: 22px 26px;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 4px;
+  margin-bottom: 14px;
+}
+.back-link:hover {
+  color: var(--primary);
 }
 
 .view-toolbar {

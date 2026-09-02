@@ -1,15 +1,44 @@
 import { defineStore } from 'pinia'
-import { CATEGORIES, PRODUCTS_SEED } from '@renderer/data/dummy'
+import { useCategoriasStore } from '@renderer/stores/categorias'
+
+function mapProducto(row) {
+  return {
+    id: row.id,
+    codigo: row.codigo,
+    desc: row.descripcion,
+    cat: row.categoria_nombre,
+    categoriaId: row.categoria_id,
+    precio: Number(row.precio),
+    existencia: row.existencia
+  }
+}
 
 export const useCatalogStore = defineStore('catalog', {
   state: () => ({
-    products: PRODUCTS_SEED.map((p) => ({ ...p })),
-    categories: CATEGORIES
+    products: [],
+    loading: false
   }),
   getters: {
-    categoryNames: (state) => Object.keys(state.categories)
+    categories() {
+      const categorias = useCategoriasStore()
+      return Object.fromEntries(
+        categorias.items.map((c) => [c.nombre, { icon: c.icono, color: c.color }])
+      )
+    },
+    categoryNames() {
+      return Object.keys(this.categories)
+    }
   },
   actions: {
+    async fetchAll() {
+      this.loading = true
+      try {
+        const rows = (await window.api?.productosList?.()) || []
+        this.products = rows.map(mapProducto)
+      } finally {
+        this.loading = false
+      }
+    },
     findByCodigo(codigo) {
       return this.products.find((p) => p.codigo === codigo)
     },
@@ -23,19 +52,33 @@ export const useCatalogStore = defineStore('catalog', {
     exists(codigo) {
       return this.products.some((p) => p.codigo === codigo)
     },
-    create(product) {
-      this.products.push({ ...product })
+    async create({ codigo, desc, cat, precio, existencia }) {
+      const categorias = useCategoriasStore()
+      const categoria = categorias.items.find((c) => c.nombre === cat)
+      if (!categoria) throw new Error('Categoría no válida')
+      await window.api.productosCreate({
+        codigo,
+        descripcion: desc,
+        categoriaId: categoria.id,
+        precio,
+        existencia
+      })
+      await this.fetchAll()
     },
-    update(codigo, changes) {
-      const p = this.findByCodigo(codigo)
-      if (p) Object.assign(p, changes)
+    async update(codigo, { desc, cat, precio }) {
+      const categorias = useCategoriasStore()
+      const categoria = categorias.items.find((c) => c.nombre === cat)
+      if (!categoria) throw new Error('Categoría no válida')
+      await window.api.productosUpdate(codigo, {
+        descripcion: desc,
+        categoriaId: categoria.id,
+        precio
+      })
+      await this.fetchAll()
     },
-    remove(codigo) {
-      this.products = this.products.filter((p) => p.codigo !== codigo)
-    },
-    adjustStock(codigo, delta) {
-      const p = this.findByCodigo(codigo)
-      if (p) p.existencia = Math.max(0, p.existencia + delta)
+    async remove(codigo) {
+      await window.api.productosRemove(codigo)
+      await this.fetchAll()
     }
   }
 })

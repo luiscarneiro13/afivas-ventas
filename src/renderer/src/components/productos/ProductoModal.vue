@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from '@renderer/components/ui/BaseModal.vue'
 import BaseField from '@renderer/components/ui/BaseField.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
@@ -53,7 +53,9 @@ function close() {
   emit('update:modelValue', false)
 }
 
-function guardar() {
+const saving = ref(false)
+
+async function guardar() {
   const codigo = form.codigo.trim().toUpperCase()
   const desc = form.desc.trim()
   const cat = form.cat
@@ -73,19 +75,26 @@ function guardar() {
     return
   }
 
-  if (!isEdit.value) {
-    if (catalog.exists(codigo)) {
-      ui.toast('Ese código ya existe', 'error')
-      return
-    }
-    catalog.create({ codigo, desc, cat, precio, existencia })
-    ui.toast(`Producto "${desc}" creado`, 'success')
-  } else {
-    catalog.update(props.producto.codigo, { desc, cat, precio, existencia })
-    ui.toast(`Producto "${desc}" actualizado`, 'success')
+  if (!isEdit.value && catalog.exists(codigo)) {
+    ui.toast('Ese código ya existe', 'error')
+    return
   }
 
-  close()
+  saving.value = true
+  try {
+    if (!isEdit.value) {
+      await catalog.create({ codigo, desc, cat, precio, existencia })
+      ui.toast(`Producto "${desc}" creado`, 'success')
+    } else {
+      await catalog.update(props.producto.codigo, { desc, cat, precio, existencia })
+      ui.toast(`Producto "${desc}" actualizado`, 'success')
+    }
+    close()
+  } catch (e) {
+    ui.toast(e?.message || 'No se pudo guardar el producto', 'error')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -110,7 +119,9 @@ function guardar() {
     <BaseField label="Existencia">
       <input v-model="form.existencia" type="number" min="0" step="1" />
     </BaseField>
-    <BaseButton variant="primary" block @click="guardar">Guardar producto</BaseButton>
+    <BaseButton variant="primary" block :disabled="saving" @click="guardar">
+      {{ saving ? 'Guardando...' : 'Guardar producto' }}
+    </BaseButton>
   </BaseModal>
 </template>
 
