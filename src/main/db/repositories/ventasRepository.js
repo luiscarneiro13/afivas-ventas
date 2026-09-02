@@ -15,11 +15,15 @@ function withRelaciones(query) {
       'ventas.*',
       'usuarios.nombre_completo as cajero_nombre',
       'metodos_pago.etiqueta as metodo_pago_etiqueta',
-      'bancos.nombre as banco_nombre'
+      'metodos_pago.codigo_fiscal as metodo_pago_codigo_fiscal',
+      'bancos.nombre as banco_nombre',
+      'clientes.direccion as cliente_direccion',
+      'clientes.telefono as cliente_telefono'
     )
     .join('usuarios', 'usuarios.id', 'ventas.usuario_id')
     .join('metodos_pago', 'metodos_pago.id', 'ventas.metodo_pago_id')
     .leftJoin('bancos', 'bancos.id', 'ventas.banco_id')
+    .leftJoin('clientes', 'clientes.id', 'ventas.cliente_id')
 }
 
 export function makeVentasRepository(knex) {

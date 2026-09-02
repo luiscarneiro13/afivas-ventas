@@ -133,23 +133,3 @@ textarea {
     transform: translateX(20px);
   }
 }
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  #facturaModalPrint,
-  #facturaModalPrint * {
-    visibility: visible;
-  }
-  #facturaModalPrint {
-    position: fixed;
-    inset: 0;
-    background: #fff;
-    padding: 20px;
-  }
-  .receipt-actions,
-  .modal-close-x {
-    display: none;
-  }
-}

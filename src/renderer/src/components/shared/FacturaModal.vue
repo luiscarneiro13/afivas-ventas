@@ -1,104 +1,119 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useCajaStore } from '@renderer/stores/caja'
-import { fmtUsd, fmtBs, fmtDateTime } from '@renderer/utils/format'
-import BaseButton from '@renderer/components/ui/BaseButton.vue'
+import { fmtBs } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 
-// Modal de factura/recibo, reutilizado en Venta (mode="sale", tras cobrar)
-// y en Reportes (mode="view", al hacer clic en una factura del historial).
+// Vista de detalle de una factura ya registrada, usada desde Reportes,
+// Configuración > Ventas y Configuración > Ventas (histórico). Replica el
+// formato del ticket que imprime la impresora fiscal (SENIAT/TFHKA) — la
+// impresión real ocurre en esa impresora al cobrar (ver VentaView.vue),
+// este modal es solo de consulta, no dispara ninguna impresión.
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  sale: { type: Object, default: null },
-  mode: { type: String, default: 'sale' } // 'sale' | 'view'
+  sale: { type: Object, default: null }
 })
-const emit = defineEmits(['update:modelValue', 'new-sale'])
+const emit = defineEmits(['update:modelValue'])
 
-const caja = useCajaStore()
-
-const barcodeBars = ref([])
+const empresa = ref(null)
 watch(
-  () => [props.modelValue, props.sale],
-  ([open]) => {
-    if (open) barcodeBars.value = Array.from({ length: 40 }, () => Math.random() * 20 + 8)
+  () => props.modelValue,
+  async (open) => {
+    if (open) empresa.value = await window.api.configEmpresaGet()
   },
   { immediate: true }
 )
 
-const numeroFmt = computed(() => (props.sale ? String(props.sale.numero).padStart(6, '0') : ''))
-
 function close() {
   emit('update:modelValue', false)
 }
-function imprimir() {
-  window.print()
-}
-function nuevaVenta() {
-  emit('update:modelValue', false)
-  emit('new-sale')
-}
+
+const numeroFmt = computed(() => (props.sale ? String(props.sale.numero).padStart(8, '0') : ''))
+
+const direccionLineas = computed(() =>
+  (empresa.value?.direccion || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+)
+
+const fechaFmt = computed(() => {
+  if (!props.sale) return ''
+  const d = new Date(props.sale.fecha)
+  return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`
+})
+const horaFmt = computed(() => {
+  if (!props.sale) return ''
+  const d = new Date(props.sale.fecha)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+})
+
+// Los montos en el ticket fiscal siempre están en bolívares, a la tasa
+// vigente al momento de esa venta (sale.tasaCambio), no a la tasa actual.
+const bs = (usd) => fmtBs((usd || 0) * (props.sale?.tasaCambio || 0))
+
+const porcentajeIvaFmt = computed(() =>
+  props.sale ? Number(props.sale.porcentajeIva).toFixed(2).replace('.', ',') : ''
+)
+const vueltoFmt = computed(() => ((props.sale?.vuelto || 0) * (props.sale?.tasaCambio || 0)).toFixed(2))
 </script>
 
 <template>
   <Teleport to="body">
     <div v-if="modelValue && sale" class="modal-overlay active">
-      <div id="facturaModalPrint" class="modal receipt-modal">
-        <button v-if="mode === 'view'" class="modal-close-x" title="Cerrar" @click="close">
+      <div class="modal receipt-modal">
+        <button class="modal-close-x" title="Cerrar" @click="close">
           <AppIcon name="x" :size="16" />
         </button>
 
         <div class="receipt">
           <div class="receipt-head">
-            <div class="rlogo">A</div>
-            <b>AFIVAS STORE</b>
-            <span>RIF J-40512378-3 · Sistema Afivas Ventas</span>
+            <b>SENIAT</b>
+            <span>{{ empresa?.rif }}</span>
+            <span>{{ empresa?.razon_social }}</span>
+            <span v-for="(linea, idx) in direccionLineas" :key="idx">{{ linea }}</span>
           </div>
           <div class="dashed"></div>
           <div class="receipt-meta">
-            <div><span>Factura</span><span>#{{ numeroFmt }}</span></div>
-            <div><span>Fecha</span><span>{{ fmtDateTime(sale.fecha) }}</span></div>
-            <div><span>Cliente</span><span>{{ sale.cliente.nombre }}</span></div>
-            <div><span>Cédula</span><span>{{ sale.cliente.cedula }}</span></div>
-            <div><span>Cajero</span><span>{{ sale.cajero }}</span></div>
+            <div><span>RIF/CI</span><span>{{ sale.cliente.tipoDocumento }}{{ sale.cliente.cedula }}</span></div>
+            <div><span>R.S.</span><span>{{ sale.cliente.nombre }}</span></div>
+            <div><span>Dir</span><span>{{ sale.cliente.direccion || '' }}</span></div>
+            <div><span>Telefonos</span><span>{{ sale.cliente.telefono || '' }}</span></div>
+            <div><span>REF</span><span>{{ numeroFmt }}</span></div>
+            <div><span>Vend</span><span>User:{{ sale.cajero }}</span></div>
+          </div>
+          <div class="dashed"></div>
+          <div class="receipt-title">FACTURA</div>
+          <div class="receipt-meta">
+            <div><span>FACTURA</span><span>{{ numeroFmt }}</span></div>
+            <div><span>FECHA {{ fechaFmt }}</span><span>HORA {{ horaFmt }}</span></div>
           </div>
           <div class="dashed"></div>
           <div class="receipt-items">
-            <table>
-              <thead>
-                <tr><th>Cant</th><th>Descripción</th><th>Total</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="i in sale.items" :key="i.codigo">
-                  <td>{{ i.cantidad }}</td>
-                  <td>{{ i.desc }}<br /><span class="muted">{{ fmtUsd(i.precio) }} c/u</span></td>
-                  <td>{{ fmtUsd(i.precio * i.cantidad) }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <template v-for="i in sale.items" :key="i.codigo">
+              <div v-if="i.cantidad > 1" class="ritem-qty">
+                <span>{{ i.cantidad }}x</span><span>{{ bs(i.precio) }}</span>
+              </div>
+              <div class="ritem-desc">
+                <span>{{ i.desc }} (G)</span><span>{{ bs(i.precio * i.cantidad) }}</span>
+              </div>
+            </template>
           </div>
           <div class="dashed"></div>
           <div class="receipt-totals">
-            <div><span>Subtotal</span><span>{{ fmtUsd(sale.subtotal) }}</span></div>
-            <div><span>IVA (16%)</span><span>{{ fmtUsd(sale.iva) }}</span></div>
-            <div class="grand"><span>TOTAL</span><span>{{ fmtUsd(sale.total) }}</span></div>
-            <div class="muted-row"><span>Equivalente</span><span>{{ fmtBs(sale.total * caja.tasa) }}</span></div>
-            <div class="mt8"><span>Método de pago</span><span>{{ sale.method.label }}</span></div>
-            <template v-if="sale.method.cash">
-              <div><span>Recibido</span><span>{{ fmtUsd(sale.recibido) }}</span></div>
-              <div><span>Vuelto</span><span>{{ fmtUsd(sale.vuelto) }}</span></div>
-            </template>
+            <div><span>BI G ({{ porcentajeIvaFmt }}%)</span><span>{{ bs(sale.subtotal) }}</span></div>
+            <div><span>IVA G ({{ porcentajeIvaFmt }}%)</span><span>{{ bs(sale.iva) }}</span></div>
           </div>
-          <div class="barcode">
-            <i v-for="(h, idx) in barcodeBars" :key="idx" :style="{ height: h + 'px' }"></i>
+          <div class="dashed"></div>
+          <div class="receipt-totals">
+            <div class="grand"><span>TOTAL</span><span>{{ bs(sale.total) }}</span></div>
+            <div><span>{{ sale.method.label.toUpperCase() }}</span><span>{{ bs(sale.total) }}</span></div>
+            <div class="vuelto">VUELTO:{{ vueltoFmt }}</div>
           </div>
-          <div class="receipt-foot">¡Gracias por tu compra!<br />www.afivasstore.com</div>
-        </div>
-
-        <div class="receipt-actions">
-          <BaseButton variant="ghost" style="flex: 1" @click="imprimir">Imprimir</BaseButton>
-          <BaseButton v-if="mode === 'sale'" variant="primary" style="flex: 1" @click="nuevaVenta">
-            Nueva venta
-          </BaseButton>
+          <div class="dashed"></div>
+          <div class="receipt-control">
+            <span>MH</span>
+            <span>{{ sale.numeroFacturaFiscal || 'Pendiente de impresión fiscal' }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -147,110 +162,79 @@ function nuevaVenta() {
 .receipt {
   padding: 26px 24px;
   font-family: 'Roboto Mono', monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--text);
 }
 .receipt-head {
   text-align: center;
-  margin-bottom: 14px;
-}
-.receipt-head .rlogo {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  margin: 0 auto 8px;
+  margin-bottom: 10px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-family: 'Poppins', sans-serif;
+  flex-direction: column;
+  gap: 2px;
 }
 .receipt-head b {
-  font-size: 15px;
-  font-family: 'Poppins', sans-serif;
-  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 .receipt-head span {
   color: var(--text-muted);
   font-size: 10.5px;
 }
+.receipt-title {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
 .dashed {
   border-top: 1px dashed var(--border);
-  margin: 12px 0;
+  margin: 10px 0;
 }
 .receipt-meta div {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 3px;
-  font-size: 11px;
+  font-size: 10.5px;
 }
-.receipt-items table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-.receipt-items th {
-  text-align: left;
+.receipt-meta div span:first-child {
   color: var(--text-muted);
-  font-weight: 600;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed var(--border);
+  flex-shrink: 0;
 }
-.receipt-items td {
-  padding: 5px 0;
-  vertical-align: top;
-}
-.receipt-items td:last-child,
-.receipt-items th:last-child {
+.receipt-meta div span:last-child {
   text-align: right;
+  word-break: break-word;
 }
-.muted {
+.receipt-items .ritem-qty,
+.receipt-items .ritem-desc {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+.receipt-items .ritem-qty {
   color: var(--text-muted);
+}
+.receipt-items .ritem-desc {
+  margin-bottom: 6px;
 }
 .receipt-totals div {
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
-  font-size: 11.5px;
-}
-.receipt-totals .muted-row {
-  color: var(--text-muted);
-}
-.receipt-totals .mt8 {
-  margin-top: 8px;
 }
 .receipt-totals .grand {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
-  font-family: 'Poppins', sans-serif;
-  margin-top: 6px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--border);
 }
-.receipt-foot {
-  text-align: center;
-  margin-top: 16px;
-  color: var(--text-muted);
-  font-size: 10.5px;
+.receipt-totals .vuelto {
+  font-weight: 600;
 }
-.barcode {
+.receipt-control {
   display: flex;
-  gap: 2px;
-  justify-content: center;
-  align-items: flex-end;
-  height: 34px;
-  margin: 14px 0;
-}
-.barcode i {
-  display: block;
-  width: 2px;
-  background: var(--text);
-}
-.receipt-actions {
-  display: flex;
-  gap: 10px;
-  padding: 0 22px 22px;
+  justify-content: space-between;
+  font-weight: 700;
+  margin-top: 4px;
 }
 </style>

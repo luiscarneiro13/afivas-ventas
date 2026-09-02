@@ -26,6 +26,13 @@ onMounted(() => {
 const search = ref('')
 const catQuery = ref('')
 const catFilter = ref('Todos')
+const estadoFilter = ref('Todos')
+
+function estadoDe(p) {
+  if (p.existencia === 0) return 'Agotado'
+  if (p.existencia <= (p.stockMinimo ?? 3)) return 'Stock mínimo'
+  return 'En stock'
+}
 
 const catItems = computed(() => {
   const q = catQuery.value.trim().toLowerCase()
@@ -46,7 +53,8 @@ const filteredProducts = computed(() => {
   return catalog.products.filter((p) => {
     const matchCat = catFilter.value === 'Todos' || p.cat === catFilter.value
     const matchQ = !q || p.codigo.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)
-    return matchCat && matchQ
+    const matchEstado = estadoFilter.value === 'Todos' || estadoDe(p) === estadoFilter.value
+    return matchCat && matchQ && matchEstado
   })
 })
 
@@ -116,6 +124,12 @@ async function confirmDelete() {
             </div>
           </template>
         </SearchDropdown>
+        <select v-model="estadoFilter" class="select-sm">
+          <option value="Todos">Todos los estados</option>
+          <option value="En stock">En stock</option>
+          <option value="Stock mínimo">Stock mínimo</option>
+          <option value="Agotado">Agotado</option>
+        </select>
       </div>
       <div class="vt-actions">
         <BaseButton variant="ghost" size="sm">
@@ -231,6 +245,9 @@ async function confirmDelete() {
   flex: 1;
   max-width: 220px;
   align-self: flex-start;
+}
+.vt-left .select-sm {
+  max-width: 190px;
 }
 .vt-actions {
   display: flex;

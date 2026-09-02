@@ -11,6 +11,7 @@ const api = {
   testTfhka: (comPort) => ipcRenderer.invoke('tfhka:test', comPort),
   printReporteX: (comPort) => ipcRenderer.invoke('tfhka:printReporteX', comPort),
   printReporteZ: (comPort) => ipcRenderer.invoke('tfhka:printReporteZ', comPort),
+  printFacturaFiscal: (comPort, venta) => ipcRenderer.invoke('tfhka:printFactura', comPort, venta),
 
   // Productos
   productosList: () => ipcRenderer.invoke('productos:list'),

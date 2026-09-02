@@ -15,7 +15,10 @@ function mapVenta(venta, items) {
     fecha: new Date(venta.fecha),
     cliente: {
       nombre: venta.cliente_nombre_snapshot,
-      cedula: venta.cliente_cedula_snapshot
+      cedula: venta.cliente_cedula_snapshot,
+      tipoDocumento: venta.cliente_tipo_documento_snapshot,
+      direccion: venta.cliente_direccion,
+      telefono: venta.cliente_telefono
     },
     cajero: venta.cajero_nombre,
     itemsCount: items ? items.reduce((a, i) => a + i.cantidad, 0) : Number(venta.items_count) || 0,
@@ -26,11 +29,20 @@ function mapVenta(venta, items) {
       cantidad: i.cantidad
     })),
     subtotal: Number(venta.subtotal),
+    porcentajeIva: Number(venta.porcentaje_iva),
     iva: Number(venta.iva),
     total: Number(venta.total),
     recibido: Number(venta.recibido),
     vuelto: Number(venta.vuelto),
-    method: metodo || { id: venta.metodo_pago_id, label: venta.metodo_pago_etiqueta, cash: false }
+    tasaCambio: Number(venta.tasa_cambio),
+    numeroFacturaFiscal: venta.numero_factura_fiscal,
+    impresaFiscalmente: !!venta.impresa_fiscalmente,
+    method: metodo || {
+      id: venta.metodo_pago_id,
+      label: venta.metodo_pago_etiqueta,
+      cash: false,
+      codigoFiscal: venta.metodo_pago_codigo_fiscal
+    }
   }
 }
 

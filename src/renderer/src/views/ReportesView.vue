@@ -47,7 +47,6 @@ const chartDays = computed(() => {
 const lastSales = computed(() => [...salesStore.sales].sort((a, b) => b.fecha - a.fecha).slice(0, 10))
 
 const facturaOpen = ref(false)
-const facturaMode = ref('view')
 const selectedSale = ref(null)
 
 async function openSale(sale) {
@@ -56,7 +55,6 @@ async function openSale(sale) {
   const detalle = await salesStore.fetchDetalle(sale.numero)
   if (!detalle) return
   selectedSale.value = detalle
-  facturaMode.value = 'view'
   facturaOpen.value = true
 }
 
@@ -153,7 +151,7 @@ onMounted(async () => {
       </table>
     </div>
 
-    <FacturaModal v-model="facturaOpen" :sale="selectedSale" :mode="facturaMode" />
+    <FacturaModal v-model="facturaOpen" :sale="selectedSale" />
   </div>
 </template>
 

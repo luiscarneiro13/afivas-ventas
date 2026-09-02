@@ -18,7 +18,6 @@ import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import ClienteModal from '@renderer/components/productos/ClienteModal.vue'
 import PagoModal from '@renderer/components/venta/PagoModal.vue'
-import FacturaModal from '@renderer/components/shared/FacturaModal.vue'
 import CantidadExcedeModal from '@renderer/components/venta/CantidadExcedeModal.vue'
 
 const route = useRoute()
@@ -42,8 +41,7 @@ const clientSearchRef = ref(null)
 const productSearchRef = ref(null)
 
 const pagoOpen = ref(false)
-const facturaOpen = ref(false)
-const facturaSale = ref(null)
+const fiscalPrintError = ref(null)
 
 const clientItems = computed(() => clientsStore.search(clientQuery.value))
 const productItems = computed(() => catalog.search(productQuery.value, 8))
@@ -169,6 +167,40 @@ function abrirPago() {
   pagoOpen.value = true
 }
 
+// Envía la factura recién registrada a la impresora fiscal (Aclas PP9-Plus,
+// protocolo TFHKA). No hay modal de previsualización: el comprobante lo
+// produce la impresora física, no la pantalla. Si falla (equipo apagado,
+// sin papel, desconectado) no se reintenta sola — la venta ya quedó
+// registrada en la BD local, así que se deja un aviso persistente con la
+// opción de reintentar en vez de un toast que desaparece solo.
+async function imprimirFiscal(sale) {
+  fiscalPrintError.value = null
+  try {
+    const config = await window.api.configImpresoraGet()
+    const comPort = config?.puerto_com
+    if (!comPort) {
+      fiscalPrintError.value = { sale, message: 'No hay un puerto COM configurado para la impresora fiscal.' }
+      return
+    }
+    const result = await window.api.printFacturaFiscal(comPort, sale)
+    if (!result?.ok) {
+      fiscalPrintError.value = { sale, message: result?.message || 'No se pudo imprimir la factura fiscal.' }
+      return
+    }
+    // El número de control que asigna la impresora aún no se captura del
+    // protocolo (a confirmar contra el equipo real); se marca la venta como
+    // impresa fiscalmente sin ese dato por ahora.
+    await window.api.ventasMarcarImpresaFiscalmente(sale.id, { numeroFacturaFiscal: null })
+    await sales.fetchAll()
+  } catch (e) {
+    fiscalPrintError.value = { sale, message: e?.message || 'No se pudo imprimir la factura fiscal.' }
+  }
+}
+
+function reintentarImpresionFiscal() {
+  if (fiscalPrintError.value?.sale) imprimirFiscal(fiscalPrintError.value.sale)
+}
+
 async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) {
   const cliente = cart.cliente
   if (!cliente) {
@@ -191,18 +223,13 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) 
       iva: cart.iva,
       total: cart.total
     })
-    facturaSale.value = sale
     pagoOpen.value = false
-    facturaOpen.value = true
-    cart.clear()
     ui.toast('Venta finalizada con éxito', 'success')
+    await imprimirFiscal(sale)
+    cart.clear()
   } catch (e) {
     ui.toast(e?.message || 'No se pudo registrar la venta', 'error')
   }
-}
-
-function onNewSale() {
-  cart.clear()
 }
 
 function focusProductSearch() {
@@ -225,7 +252,6 @@ function handleKeydown(e) {
     abrirPago()
   } else if (e.key === 'Escape') {
     pagoOpen.value = false
-    facturaOpen.value = false
   }
 }
 
@@ -235,6 +261,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 <template>
   <div class="view-content">
+    <div v-if="fiscalPrintError" class="fiscal-error-banner">
+      <AppIcon name="alert" :size="16" />
+      <span>{{ fiscalPrintError.message }}</span>
+      <BaseButton variant="ghost" size="sm" @click="reintentarImpresionFiscal">Reintentar</BaseButton>
+      <BaseButton variant="ghost" size="sm" @click="fiscalPrintError = null">Descartar</BaseButton>
+    </div>
     <div class="vb-shell">
       <div class="vb-window">
         <div class="vb-row">
@@ -373,7 +405,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       :pay-methods="metodosPago.items"
       @finalizar="onFinalizar"
     />
-    <FacturaModal v-model="facturaOpen" :sale="facturaSale" mode="sale" @new-sale="onNewSale" />
     <CantidadExcedeModal
       v-model="qtyModalOpen"
       :desc="qtyModalDesc"
@@ -400,6 +431,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   overflow-y: auto;
   padding: 22px 26px;
   display: flex;
+}
+.fiscal-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.fiscal-error-banner span {
+  flex: 1;
 }
 .vb-shell {
   display: grid;

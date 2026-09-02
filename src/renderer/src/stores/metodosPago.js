@@ -5,7 +5,8 @@ function mapMetodo(row) {
     id: row.id,
     label: row.etiqueta,
     icon: row.icono,
-    cash: !!row.es_efectivo
+    cash: !!row.es_efectivo,
+    codigoFiscal: row.codigo_fiscal
   }
 }
 

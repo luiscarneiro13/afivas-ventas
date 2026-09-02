@@ -115,6 +115,80 @@ function printReporteZ(comPort) {
   })
 }
 
+// Formatea un precio como exige el comando `!` de TFHKA: 8 dígitos enteros
+// + 2 decimales, sin separador, con ceros a la izquierda (10 caracteres).
+function formatPrecioTfhka(precio) {
+  return String(Math.round(Number(precio) * 100)).padStart(10, '0')
+}
+
+// Formatea una cantidad como exige el comando `!` de TFHKA: 5 dígitos
+// enteros + 3 decimales, sin separador, con ceros a la izquierda (8 caracteres).
+function formatCantidadTfhka(cantidad) {
+  return String(Math.round(Number(cantidad) * 1000)).padStart(8, '0')
+}
+
+// Imprime la factura fiscal completa: identifica al cliente, registra cada
+// ítem y totaliza con el medio de pago, siguiendo el protocolo documentado
+// en Docs/04-INTEGRACION_TFHKA.md. Si cualquier comando falla se aborta de
+// inmediato — un envío a medias sobre memoria fiscal no debe continuarse.
+function printFacturaFiscal(comPort, venta) {
+  return withTfhka(comPort, (lib) => {
+    const SendCmd = lib.func('bool __stdcall SendCmd(_Out_ int *status, _Out_ int *error, const char *cmd)')
+
+    function send(cmd) {
+      const statusOut = [0]
+      const errorOut = [0]
+      const okCmd = SendCmd(statusOut, errorOut, cmd)
+      return { okCmd, status: statusOut[0], error: errorOut[0] }
+    }
+
+    if (venta.cliente?.cedula) {
+      const rif = `${venta.cliente.tipoDocumento || 'V'}${venta.cliente.cedula}`
+      const r = send(`iR*${rif}`)
+      if (!r.okCmd) {
+        return {
+          ok: false,
+          message: `No se pudo enviar el RIF/CI del cliente (estado: ${r.status}, error: ${r.error}).`
+        }
+      }
+    }
+    if (venta.cliente?.nombre) {
+      const r = send(`iS*${venta.cliente.nombre.toUpperCase()}`)
+      if (!r.okCmd) {
+        return {
+          ok: false,
+          message: `No se pudo enviar el nombre del cliente (estado: ${r.status}, error: ${r.error}).`
+        }
+      }
+    }
+
+    for (const item of venta.items || []) {
+      const cmd = `!${formatPrecioTfhka(item.precio)}${formatCantidadTfhka(item.cantidad)}|${item.codigo}|${item.desc}`
+      const r = send(cmd)
+      if (!r.okCmd) {
+        return {
+          ok: false,
+          message: `No se pudo registrar el producto "${item.desc}" (estado: ${r.status}, error: ${r.error}).`
+        }
+      }
+    }
+
+    const codigoFiscal = venta.method?.codigoFiscal
+    if (!codigoFiscal) {
+      return { ok: false, message: 'El método de pago de la venta no tiene código fiscal configurado.' }
+    }
+    const totalizacion = send(`1${codigoFiscal}`)
+    if (!totalizacion.okCmd) {
+      return {
+        ok: false,
+        message: `No se pudo totalizar la factura fiscal (estado: ${totalizacion.status}, error: ${totalizacion.error}).`
+      }
+    }
+
+    return { ok: true, message: 'Factura fiscal impresa.' }
+  })
+}
+
 // Los puertos COM activos quedan registrados por Windows en esta clave del
 // registro (DEVICEMAP\SERIALCOMM), sea el puerto físico o un adaptador
 // USB-serial con su driver instalado. Es más fiable que `wmic` (deprecado
@@ -182,6 +256,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('tfhka:test', (_event, comPort) => testTfhka(comPort))
   ipcMain.handle('tfhka:printReporteX', (_event, comPort) => printReporteX(comPort))
   ipcMain.handle('tfhka:printReporteZ', (_event, comPort) => printReporteZ(comPort))
+  ipcMain.handle('tfhka:printFactura', (_event, comPort, venta) => printFacturaFiscal(comPort, venta))
 
   createWindow()
 

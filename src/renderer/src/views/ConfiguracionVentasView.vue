@@ -159,7 +159,7 @@ async function confirmAnular() {
       </table>
     </div>
 
-    <FacturaModal v-model="facturaOpen" :sale="selectedSale" mode="view" />
+    <FacturaModal v-model="facturaOpen" :sale="selectedSale" />
     <ConfirmModal
       v-model="confirmOpen"
       :title="ventaAAnular ? `¿Anular la factura #${String(ventaAAnular.numero).padStart(6, '0')}?` : '¿Anular venta?'"
