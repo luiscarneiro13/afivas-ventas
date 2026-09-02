@@ -41,12 +41,14 @@ const api = {
 
   // Métodos de pago
   metodosPagoList: () => ipcRenderer.invoke('metodosPago:list'),
+  bancosList: () => ipcRenderer.invoke('bancos:list'),
 
   // Ventas
   ventasRegistrar: (payload) => ipcRenderer.invoke('ventas:registrar', payload),
   ventasList: (filtros) => ipcRenderer.invoke('ventas:list', filtros),
   ventasFindByNumero: (numero) => ipcRenderer.invoke('ventas:findByNumero', numero),
   ventasTopProducto: () => ipcRenderer.invoke('ventas:topProducto'),
+  ventasAnular: (id) => ipcRenderer.invoke('ventas:anular', id),
   ventasMarcarImpresaFiscalmente: (id, payload) =>
     ipcRenderer.invoke('ventas:marcarImpresaFiscalmente', id, payload),
 

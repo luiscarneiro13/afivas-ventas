@@ -36,12 +36,14 @@ export function registerDbHandlers(knex) {
 
   // Métodos de pago
   ipcMain.handle('metodosPago:list', () => repos.metodosPago.list())
+  ipcMain.handle('bancos:list', () => repos.bancos.list())
 
   // Ventas
   ipcMain.handle('ventas:registrar', (_e, payload) => repos.ventas.registrar(payload))
   ipcMain.handle('ventas:list', (_e, filtros) => repos.ventas.list(filtros))
   ipcMain.handle('ventas:findByNumero', (_e, numero) => repos.ventas.findByNumero(numero))
   ipcMain.handle('ventas:topProducto', () => repos.ventas.topProducto())
+  ipcMain.handle('ventas:anular', (_e, id) => repos.ventas.anular(id))
   ipcMain.handle('ventas:marcarImpresaFiscalmente', (_e, id, payload) =>
     repos.ventas.marcarImpresaFiscalmente(id, payload)
   )

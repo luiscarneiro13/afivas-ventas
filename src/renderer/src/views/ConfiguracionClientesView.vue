@@ -13,8 +13,11 @@ const ui = useUiStore()
 
 onMounted(() => clientes.fetchAll())
 
-// El "Cliente Eventual" es un registro del sistema (ventas sin cliente
-// registrado), no se administra desde este CRUD.
+// El "Cliente Eventual" era un registro del sistema para ventas sin
+// cliente registrado; ya no se ofrece en Venta (toda venta requiere un
+// cliente real), pero instalaciones existentes pueden conservarlo por
+// las facturas históricas que ya lo referencian — no se administra desde
+// este CRUD.
 const clientesVisibles = computed(() => clientes.items.filter((c) => !c.es_eventual))
 
 const modalOpen = ref(false)
@@ -79,7 +82,10 @@ async function confirmDelete() {
           <tr>
             <th>Cliente</th>
             <th>Cédula / RIF</th>
+            <th>Dirección</th>
             <th>Teléfono</th>
+            <th>Móvil</th>
+            <th>Correo</th>
             <th></th>
           </tr>
         </thead>
@@ -87,7 +93,10 @@ async function confirmDelete() {
           <tr v-for="c in clientesVisibles" :key="c.id">
             <td><b>{{ c.nombre }}</b></td>
             <td class="num">{{ c.tipo_documento }}-{{ c.cedula }}</td>
+            <td>{{ c.direccion || '—' }}</td>
             <td>{{ c.telefono || '—' }}</td>
+            <td>{{ c.movil || '—' }}</td>
+            <td>{{ c.correo || '—' }}</td>
             <td>
               <div class="table-actions">
                 <button class="icon-btn" title="Editar" @click="openEdit(c)"><AppIcon name="edit" :size="15" /></button>
@@ -98,7 +107,7 @@ async function confirmDelete() {
         </tbody>
         <tbody v-else>
           <tr>
-            <td colspan="4">
+            <td colspan="7">
               <EmptyState icon="user" title="Sin clientes" subtitle="Crea el primer cliente" />
             </td>
           </tr>
@@ -110,7 +119,7 @@ async function confirmDelete() {
     <ConfirmModal
       v-model="confirmOpen"
       :title="clienteAEliminar ? `¿Eliminar &quot;${clienteAEliminar.nombre}&quot;?` : '¿Eliminar cliente?'"
-      text="El cliente se desactivará y dejará de estar disponible para nuevas ventas."
+      text="Esta acción eliminará el cliente de forma permanente y no se puede deshacer."
       icon="trash"
       confirm-label="Eliminar"
       @confirm="confirmDelete"
@@ -168,7 +177,7 @@ table.data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 480px;
+  min-width: 860px;
 }
 .data-table th {
   text-align: left;

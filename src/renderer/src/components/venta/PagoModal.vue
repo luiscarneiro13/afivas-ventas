@@ -1,43 +1,76 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { fmtUsd, fmtBs, round2 } from '@renderer/utils/format'
+import { fmtBs, round2 } from '@renderer/utils/format'
 import { useUiStore } from '@renderer/stores/ui'
+import { useBancosStore } from '@renderer/stores/bancos'
 import BaseModal from '@renderer/components/ui/BaseModal.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
+import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  total: { type: Number, default: 0 },
-  totalBs: { type: Number, default: 0 },
+  total: { type: Number, default: 0 }, // dólares — base real que se guarda en la BD
+  totalBs: { type: Number, default: 0 }, // bolívares — lo único que se muestra
+  tasa: { type: Number, default: 1 },
   payMethods: { type: Array, default: () => [] }
 })
 const emit = defineEmits(['update:modelValue', 'finalizar'])
 
 const ui = useUiStore()
+const bancosStore = useBancosStore()
 
 const metodoPago = ref('efectivo')
-const montoRecibido = ref('0.00')
+const montoRecibidoBs = ref('0.00')
 const referencia = ref('')
+const bancoId = ref(null)
+const bancoQuery = ref('')
+
+const bancoItems = computed(() => {
+  const q = bancoQuery.value.trim().toLowerCase()
+  return q ? bancosStore.items.filter((b) => b.nombre.toLowerCase().includes(q)) : bancosStore.items
+})
+
+function seleccionarBanco(b) {
+  bancoId.value = b.id
+  bancoQuery.value = b.nombre
+}
 
 const metodoActivo = computed(() => props.payMethods.find((m) => m.id === metodoPago.value) || null)
 
-const vuelto = computed(() => round2((parseFloat(montoRecibido.value) || 0) - props.total))
+// Tarjeta de crédito y Divisas van primero en la lista, pero bloqueadas
+// (no disponibles todavía) — se muestran atenuadas y no se pueden elegir.
+const BLOCKED_IDS = ['credito', 'divisas']
+function isBlocked(id) {
+  return BLOCKED_IDS.includes(id)
+}
+const sortedMethods = computed(() => {
+  const blocked = props.payMethods
+    .filter((m) => isBlocked(m.id))
+    .sort((a, b) => BLOCKED_IDS.indexOf(a.id) - BLOCKED_IDS.indexOf(b.id))
+  const resto = props.payMethods.filter((m) => !isBlocked(m.id))
+  return [...blocked, ...resto]
+})
+
+const vueltoBs = computed(() => round2((parseFloat(montoRecibidoBs.value) || 0) - props.totalBs))
 
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       metodoPago.value = 'efectivo'
-      montoRecibido.value = props.total.toFixed(2)
+      montoRecibidoBs.value = props.totalBs.toFixed(2)
       referencia.value = ''
+      bancoId.value = null
+      bancoQuery.value = ''
     }
   }
 )
 
 function seleccionarMetodo(id) {
+  if (isBlocked(id)) return
   metodoPago.value = id
-  if (metodoActivo.value?.cash) montoRecibido.value = props.total.toFixed(2)
+  if (metodoActivo.value?.cash) montoRecibidoBs.value = props.totalBs.toFixed(2)
 }
 
 function close() {
@@ -50,18 +83,23 @@ function finalizar() {
   let recibido = props.total
   let vueltoFinal = 0
   if (method.cash) {
-    recibido = parseFloat(montoRecibido.value) || 0
-    if (recibido < props.total) {
+    const recibidoBs = parseFloat(montoRecibidoBs.value) || 0
+    if (recibidoBs < props.totalBs) {
       ui.toast('El monto recibido es insuficiente', 'error')
       return
     }
+    // Los montos se capturan en Bs, pero recibido/vuelto se guardan en
+    // dólares (misma base que subtotal/iva/total en la BD).
+    recibido = round2(recibidoBs / props.tasa)
     vueltoFinal = round2(recibido - props.total)
   }
+  const admiteReferencia = method.id === 'transferencia' || method.id === 'pagomovil'
   emit('finalizar', {
     methodId: method.id,
     recibido,
     vuelto: vueltoFinal,
-    referencia: method.cash ? '' : referencia.value.trim()
+    referencia: admiteReferencia ? referencia.value.trim() || null : null,
+    bancoId: method.id === 'transferencia' ? bancoId.value : null
   })
 }
 </script>
@@ -70,17 +108,18 @@ function finalizar() {
   <BaseModal :model-value="modelValue" title="Forma de pago" width="460px" @update:model-value="emit('update:modelValue', $event)">
     <div class="pay-total">
       <span>Total a pagar</span>
-      <div class="amt num">{{ fmtUsd(total) }}</div>
-      <div class="amt2 num">{{ fmtBs(totalBs) }}</div>
+      <div class="amt num">{{ fmtBs(totalBs) }}</div>
     </div>
 
     <div class="pay-methods">
       <button
-        v-for="m in payMethods"
+        v-for="m in sortedMethods"
         :key="m.id"
         type="button"
         class="pay-method"
-        :class="{ active: metodoPago === m.id }"
+        :class="{ active: metodoPago === m.id, blocked: isBlocked(m.id) }"
+        :disabled="isBlocked(m.id)"
+        :title="isBlocked(m.id) ? 'No disponible por ahora' : ''"
         @click="seleccionarMetodo(m.id)"
       >
         <AppIcon :name="m.icon" :size="20" />
@@ -90,17 +129,39 @@ function finalizar() {
 
     <div v-if="metodoActivo?.cash">
       <div class="field">
-        <label>Monto recibido ($)</label>
-        <input v-model="montoRecibido" type="number" min="0" step="0.01" />
+        <label>Monto recibido (Bs)</label>
+        <input v-model="montoRecibidoBs" type="number" min="0" step="0.01" />
       </div>
-      <div class="vuelto-box" :class="{ neg: vuelto < 0 }">
-        <span>{{ vuelto < 0 ? 'Falta' : 'Vuelto' }}</span>
-        <span class="num">{{ fmtUsd(Math.abs(vuelto)) }}</span>
+      <div class="vuelto-box" :class="{ neg: vueltoBs < 0 }">
+        <span>{{ vueltoBs < 0 ? 'Falta' : 'Vuelto' }}</span>
+        <span class="num">{{ fmtBs(Math.abs(vueltoBs)) }}</span>
       </div>
     </div>
-    <div v-else>
+    <div v-else-if="metodoPago === 'transferencia'">
       <div class="field">
-        <label>Referencia / N° de operación</label>
+        <label>Banco (opcional)</label>
+        <SearchDropdown
+          v-model="bancoQuery"
+          placeholder="Buscar banco..."
+          :items="bancoItems"
+          item-key="id"
+          show-on-empty-focus
+          empty-message="Sin coincidencias"
+          @select="seleccionarBanco"
+        >
+          <template #item="{ item }">
+            <b>{{ item.nombre }}</b>
+          </template>
+        </SearchDropdown>
+      </div>
+      <div class="field">
+        <label>Referencia / N° de operación (opcional)</label>
+        <input v-model="referencia" type="text" placeholder="Opcional" />
+      </div>
+    </div>
+    <div v-else-if="metodoPago === 'pagomovil'">
+      <div class="field">
+        <label>Referencia / N° de operación (opcional)</label>
         <input v-model="referencia" type="text" placeholder="Opcional" />
       </div>
     </div>
@@ -127,12 +188,6 @@ function finalizar() {
   color: var(--primary);
   margin-top: 4px;
 }
-.pay-total .amt2 {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
 .pay-methods {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -161,6 +216,13 @@ function finalizar() {
   background: var(--primary-light);
   color: var(--primary);
 }
+.pay-method.blocked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pay-method.blocked:hover {
+  border-color: var(--border);
+}
 
 .field label {
   display: block;
@@ -184,6 +246,9 @@ function finalizar() {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 4px var(--primary-light);
+}
+.field + .field {
+  margin-top: 14px;
 }
 
 .vuelto-box {

@@ -4,15 +4,15 @@ export function makeCategoriasRepository(knex) {
       return knex('categorias').where({ activo: 1 }).orderBy('nombre')
     },
 
-    async create({ nombre, color }) {
-      const [id] = await knex('categorias').insert({ nombre, color })
+    async create({ nombre }) {
+      const [id] = await knex('categorias').insert({ nombre })
       return knex('categorias').where({ id }).first()
     },
 
-    async update(id, { nombre, color }) {
+    async update(id, { nombre }) {
       await knex('categorias')
         .where({ id })
-        .update({ nombre, color, updated_at: knex.fn.now() })
+        .update({ nombre, updated_at: knex.fn.now() })
       return knex('categorias').where({ id }).first()
     },
 

@@ -63,8 +63,10 @@ async function guardar() {
   const desc = form.desc.trim()
   const cat = form.cat
   const precio = parseFloat(form.precio)
-  const existencia = parseInt(form.existencia, 10)
-  const stockMinimo = parseInt(form.stockMinimo, 10)
+  const existencia =
+    form.existencia === '' || form.existencia === null ? 0 : parseInt(form.existencia, 10)
+  const stockMinimo =
+    form.stockMinimo === '' || form.stockMinimo === null ? 3 : parseInt(form.stockMinimo, 10)
 
   if (
     !codigo ||
@@ -123,11 +125,11 @@ async function guardar() {
       </BaseField>
     </div>
     <div class="field-row">
-      <BaseField label="Existencia">
-        <input v-model="form.existencia" type="number" min="0" step="1" />
+      <BaseField label="Existencia (opcional)">
+        <input v-model="form.existencia" type="number" min="0" step="1" placeholder="0" />
       </BaseField>
-      <BaseField label="Alerta de cantidad mínima">
-        <input v-model="form.stockMinimo" type="number" min="0" step="1" />
+      <BaseField label="Alerta de cantidad mínima (opcional)">
+        <input v-model="form.stockMinimo" type="number" min="0" step="1" placeholder="3" />
       </BaseField>
     </div>
     <BaseButton variant="primary" block :disabled="saving" @click="guardar">

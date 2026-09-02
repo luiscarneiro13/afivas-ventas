@@ -41,7 +41,7 @@ function nuevaVenta() {
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue && sale" class="modal-overlay active" @click.self="mode === 'view' && close()">
+    <div v-if="modelValue && sale" class="modal-overlay active">
       <div id="facturaModalPrint" class="modal receipt-modal">
         <button v-if="mode === 'view'" class="modal-close-x" title="Cerrar" @click="close">
           <AppIcon name="x" :size="16" />

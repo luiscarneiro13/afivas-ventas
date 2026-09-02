@@ -8,37 +8,55 @@ import { useUiStore } from '@renderer/stores/ui'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  cliente: { type: Object, default: null }
+  cliente: { type: Object, default: null },
+  // Valores iniciales solo para el flujo de creación (ej. lo que el usuario
+  // ya había escrito en un buscador antes de decidir registrar el cliente).
+  prefill: { type: Object, default: null }
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'created'])
 
 const clientes = useClientesStore()
 const ui = useUiStore()
-
-const TIPOS_DOCUMENTO = ['V', 'E', 'J', 'G', 'P']
 
 const isEdit = computed(() => !!props.cliente)
 const title = computed(() => (isEdit.value ? 'Editar cliente' : 'Nuevo cliente'))
 
 const form = reactive({
-  tipoDocumento: 'V',
+  tipoDocumento: '',
   cedula: '',
   nombre: '',
-  telefono: ''
+  direccion: '',
+  telefono: '',
+  movil: '',
+  correo: ''
 })
 
 function resetForm() {
   if (props.cliente) {
-    form.tipoDocumento = props.cliente.tipo_documento || 'V'
-    form.cedula = props.cliente.cedula
+    form.tipoDocumento = props.cliente.tipo_documento || ''
+    form.cedula = props.cliente.cedula || ''
     form.nombre = props.cliente.nombre
+    form.direccion = props.cliente.direccion || ''
     form.telefono = props.cliente.telefono || ''
+    form.movil = props.cliente.movil || ''
+    form.correo = props.cliente.correo || ''
   } else {
-    form.tipoDocumento = 'V'
-    form.cedula = ''
-    form.nombre = ''
+    form.tipoDocumento = props.prefill?.tipoDocumento || 'V'
+    form.cedula = (props.prefill?.cedula || '').replace(/\D/g, '')
+    form.nombre = props.prefill?.nombre || ''
+    form.direccion = 'El Tigre'
     form.telefono = ''
+    form.movil = ''
+    form.correo = ''
   }
+}
+
+function seleccionarTipo(letra) {
+  form.tipoDocumento = letra
+}
+
+function onCedulaInput(e) {
+  form.cedula = e.target.value.replace(/\D/g, '')
 }
 
 watch(
@@ -54,23 +72,50 @@ function close() {
 
 const saving = ref(false)
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 async function guardar() {
   const cedula = form.cedula.trim()
   const nombre = form.nombre.trim()
+  const direccion = form.direccion.trim()
+  const telefono = form.telefono.trim()
+  const movil = form.movil.trim()
+  const correo = form.correo.trim()
+
+  if (!form.tipoDocumento) {
+    ui.toast('Selecciona el tipo de documento', 'error')
+    return
+  }
   if (!cedula || !nombre) {
     ui.toast('Completa la cédula/RIF y el nombre', 'error')
+    return
+  }
+  if (correo && !EMAIL_RE.test(correo)) {
+    ui.toast('El correo no tiene un formato válido', 'error')
     return
   }
 
   saving.value = true
   try {
     if (!isEdit.value) {
-      await clientes.create({ cedula, tipoDocumento: form.tipoDocumento, nombre, telefono: form.telefono.trim() })
+      const creado = await clientes.create({
+        cedula,
+        tipoDocumento: form.tipoDocumento,
+        nombre,
+        direccion,
+        telefono,
+        movil,
+        correo
+      })
       ui.toast(`Cliente "${nombre}" creado`, 'success')
+      emit('created', creado)
     } else {
       await clientes.update(props.cliente.id, {
         nombre,
-        telefono: form.telefono.trim(),
+        direccion,
+        telefono,
+        movil,
+        correo,
         tipoDocumento: form.tipoDocumento
       })
       ui.toast(`Cliente "${nombre}" actualizado`, 'success')
@@ -86,21 +131,62 @@ async function guardar() {
 
 <template>
   <BaseModal :model-value="modelValue" :title="title" @update:model-value="$emit('update:modelValue', $event)">
+    <BaseField label="Tipo">
+      <div class="tipo-toggle">
+        <button
+          type="button"
+          class="tipo-btn"
+          :class="{ active: form.tipoDocumento === 'V' }"
+          :disabled="isEdit"
+          @click="seleccionarTipo('V')"
+        >
+          Natural
+        </button>
+        <button
+          type="button"
+          class="tipo-btn"
+          :class="{ active: form.tipoDocumento === 'J' }"
+          :disabled="isEdit"
+          @click="seleccionarTipo('J')"
+        >
+          Jurídico
+        </button>
+      </div>
+    </BaseField>
     <div class="field-row">
-      <BaseField label="Tipo">
-        <select v-model="form.tipoDocumento" :disabled="isEdit">
-          <option v-for="t in TIPOS_DOCUMENTO" :key="t" :value="t">{{ t }}</option>
-        </select>
+      <BaseField class="field-cedula" label="Cédula / RIF">
+        <input
+          v-model="form.cedula"
+          type="text"
+          inputmode="numeric"
+          maxlength="9"
+          placeholder="Ej. 165729168"
+          :disabled="isEdit"
+          @input="onCedulaInput"
+        />
       </BaseField>
-      <BaseField label="Cédula / RIF">
-        <input v-model="form.cedula" type="text" placeholder="Ej. 31179420" :disabled="isEdit" />
+      <BaseField label="Nombre">
+        <input
+          v-model="form.nombre"
+          type="text"
+          placeholder="Ej. Mariana Carneiro"
+          @keydown.enter.prevent="guardar"
+        />
       </BaseField>
     </div>
-    <BaseField label="Nombre">
-      <input v-model="form.nombre" type="text" placeholder="Ej. Mariana Carneiro" />
+    <BaseField label="Dirección (opcional)">
+      <input v-model="form.direccion" type="text" placeholder="Ej. Av. Principal, Caracas" />
     </BaseField>
-    <BaseField label="Teléfono (opcional)">
-      <input v-model="form.telefono" type="text" placeholder="Ej. 0414-1234567" />
+    <div class="field-row">
+      <BaseField label="Teléfono (opcional)">
+        <input v-model="form.telefono" type="text" placeholder="Ej. 0212-1234567" />
+      </BaseField>
+      <BaseField label="Móvil (opcional)">
+        <input v-model="form.movil" type="text" placeholder="Ej. 0414-1234567" />
+      </BaseField>
+    </div>
+    <BaseField label="Correo (opcional)">
+      <input v-model="form.correo" type="email" placeholder="Ej. cliente@correo.com" />
     </BaseField>
     <BaseButton variant="primary" block :disabled="saving" @click="guardar">
       {{ saving ? 'Guardando...' : 'Guardar cliente' }}
@@ -117,7 +203,34 @@ async function guardar() {
   flex: 1;
   min-width: 0;
 }
-.field-row :deep(select) {
+.field-row .field-cedula {
+  flex: 0 0 140px;
+}
+.tipo-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.tipo-btn {
   height: 42px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: 0.15s;
+}
+.tipo-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+.tipo-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+.tipo-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

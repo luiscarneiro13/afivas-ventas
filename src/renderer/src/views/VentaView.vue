@@ -9,13 +9,14 @@ import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 import { useCajaStore } from '@renderer/stores/caja'
 import { useAuthStore } from '@renderer/stores/auth'
 import { useUiStore } from '@renderer/stores/ui'
-import { fmtBs, initials } from '@renderer/utils/format'
+import { fmtBs } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
+import ClienteModal from '@renderer/components/productos/ClienteModal.vue'
 import PagoModal from '@renderer/components/venta/PagoModal.vue'
 import FacturaModal from '@renderer/components/shared/FacturaModal.vue'
 import CantidadExcedeModal from '@renderer/components/venta/CantidadExcedeModal.vue'
@@ -44,9 +45,7 @@ const pagoOpen = ref(false)
 const facturaOpen = ref(false)
 const facturaSale = ref(null)
 
-const clientItems = computed(() =>
-  [clientsStore.eventual, ...clientsStore.search(clientQuery.value)].filter(Boolean)
-)
+const clientItems = computed(() => clientsStore.search(clientQuery.value))
 const productItems = computed(() => catalog.search(productQuery.value, 8))
 
 function estadoProducto(p) {
@@ -55,13 +54,40 @@ function estadoProducto(p) {
   return `Exist: ${p.existencia}`
 }
 
+function itemClassProducto(p) {
+  return { 'stock-low': p.existencia > 0 && p.existencia <= (p.stockMinimo ?? 3) }
+}
+
 function selectClient(c) {
-  cart.setCliente(c.cedula === clientsStore.eventual?.cedula ? clientsStore.eventual : c)
+  cart.setCliente(c)
   clientQuery.value = ''
   clienteInvalido.value = false
 }
 function quitarCliente() {
   cart.setCliente(null)
+}
+
+const clienteModalOpen = ref(false)
+const clientePrefill = ref(null)
+
+function onClientQueryEnter() {
+  const q = clientQuery.value.trim()
+  if (!q) return
+  const registrado = clientsStore.findByCedula(q)
+  if (registrado) {
+    selectClient(registrado)
+    return
+  }
+  if (clientsStore.search(q).length > 0) return
+  const esCedula = /^\d+$/.test(q)
+  clientePrefill.value = esCedula
+    ? { cedula: q, tipoDocumento: q.length === 9 ? 'J' : 'V' }
+    : { nombre: q }
+  clienteModalOpen.value = true
+}
+
+function onClienteCreado(c) {
+  selectClient(c)
 }
 
 function selectProduct(p) {
@@ -119,15 +145,15 @@ function selectQtyContent(e) {
   e.target.select()
 }
 
-const anularConfirmOpen = ref(false)
+const vaciarConfirmOpen = ref(false)
 
-function pedirAnularVenta() {
+function pedirVaciarProductos() {
   if (cart.items.length === 0) return
-  anularConfirmOpen.value = true
+  vaciarConfirmOpen.value = true
 }
-function anularVenta() {
+function vaciarProductos() {
   cart.clear()
-  ui.toast('Venta anulada', 'info')
+  ui.toast('Productos del carrito eliminados', 'info')
 }
 
 const clienteInvalido = ref(false)
@@ -143,8 +169,8 @@ function abrirPago() {
   pagoOpen.value = true
 }
 
-async function onFinalizar({ methodId, recibido, vuelto, referencia }) {
-  const cliente = cart.cliente || clientsStore.eventual
+async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) {
+  const cliente = cart.cliente
   if (!cliente) {
     ui.toast('No se pudo determinar el cliente de la venta', 'error')
     return
@@ -159,6 +185,7 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia }) {
       recibido,
       vuelto,
       referenciaPago: referencia || null,
+      bancoId: bancoId || null,
       tasaCambio: caja.tasa,
       subtotal: cart.subtotal,
       iva: cart.iva,
@@ -211,29 +238,28 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
     <div class="vb-shell">
       <div class="vb-window">
         <div class="vb-row">
-          <div class="vb-field">
+          <div class="vb-field vb-field-cliente">
             <SearchDropdown
               v-if="!cart.cliente"
               ref="clientSearchRef"
               v-model="clientQuery"
               class="client-search"
               :class="{ invalid: clienteInvalido }"
-              placeholder="Buscar o ingresar cliente"
+              placeholder="Buscar o registrar cliente"
               kbd="F2"
               :items="clientItems"
               item-key="cedula"
               show-on-empty-focus
+              empty-message="Sin coincidencias — presiona Enter para registrarlo"
               @select="selectClient"
+              @keydown.enter="onClientQueryEnter"
             >
               <template #item="{ item }">
-                <b>{{ item.cedula === clientsStore.eventual?.cedula ? 'Cliente Eventual' : item.nombre }}</b>
-                <span>
-                  {{ item.cedula === clientsStore.eventual?.cedula ? 'Venta sin registrar' : `C.I. ${item.cedula}` }}
-                </span>
+                <b>{{ item.nombre }}</b>
+                <span>C.I. {{ item.cedula }}</span>
               </template>
             </SearchDropdown>
             <div v-else class="client-selected">
-              <div class="avatar">{{ initials(cart.cliente.nombre) }}</div>
               <div class="info">
                 <b>{{ cart.cliente.nombre }}</b>
                 <span>{{ cart.cliente.cedula }}</span>
@@ -242,7 +268,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
             </div>
           </div>
 
-          <div class="vb-field">
+          <div class="vb-field vb-field-producto">
             <SearchDropdown
               ref="productSearchRef"
               v-model="productQuery"
@@ -250,6 +276,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
               kbd="F1"
               :items="productItems"
               item-key="codigo"
+              :item-class="itemClassProducto"
               empty-message="Sin coincidencias"
               @select="selectProduct"
             >
@@ -264,6 +291,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
         <div class="vb-grid-title">
           Productos de la venta
           <BaseBadge variant="ok">{{ cart.count }}</BaseBadge>
+          <BaseButton
+            variant="ghost"
+            size="sm"
+            class="vb-vaciar-btn"
+            @click="pedirVaciarProductos"
+          >
+            Vaciar productos
+          </BaseButton>
         </div>
         <div class="vb-grid-wrap">
           <table class="vb-datagrid">
@@ -327,9 +362,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
           <span>Cobrar</span>
           <span class="num">{{ fmtBs(cart.totalBs) }}</span>
         </button>
-        <BaseButton variant="ghost" size="sm" block style="margin-top: 10px" @click="pedirAnularVenta">
-          Anular venta
-        </BaseButton>
       </div>
     </div>
 
@@ -337,6 +369,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       v-model="pagoOpen"
       :total="cart.total"
       :total-bs="cart.totalBs"
+      :tasa="caja.tasa"
       :pay-methods="metodosPago.items"
       @finalizar="onFinalizar"
     />
@@ -349,13 +382,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       @confirm="onQtyModalConfirm"
     />
     <ConfirmModal
-      v-model="anularConfirmOpen"
-      title="¿Anular venta?"
+      v-model="vaciarConfirmOpen"
+      title="¿Vaciar productos?"
       text="Se quitarán todos los productos del carrito. Esta acción no se puede deshacer."
       icon="trash"
-      confirm-label="Anular venta"
-      @confirm="anularVenta"
+      confirm-label="Vaciar productos"
+      @confirm="vaciarProductos"
     />
+    <ClienteModal v-model="clienteModalOpen" :prefill="clientePrefill" @created="onClienteCreado" />
   </div>
 </template>
 
@@ -396,14 +430,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   height: 100%;
 }
 .vb-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(200px, 3fr) minmax(200px, 9fr);
   gap: 16px;
-  flex-wrap: wrap;
   padding: 18px 20px 4px;
 }
 .vb-field {
-  flex: 1;
-  min-width: 240px;
+  min-width: 0;
 }
 
 .vb-grid-title {
@@ -416,6 +449,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 14px 20px 8px;
+}
+.vb-vaciar-btn {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: normal;
 }
 .vb-grid-wrap {
   flex: 1;
@@ -519,39 +557,29 @@ table.vb-datagrid {
   border-radius: 10px;
   padding: 0 8px 0 6px;
 }
-.client-selected .avatar {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 9.5px;
-  flex-shrink: 0;
-}
 .client-selected .info {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  justify-content: center;
   overflow: hidden;
 }
 .client-selected .info b {
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .client-selected .info span {
-  font-size: 10.5px;
+  font-size: 9.5px;
+  line-height: 1.2;
   color: var(--text-muted);
   white-space: nowrap;
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: 'Roboto Mono', monospace;
 }
 .client-selected button {

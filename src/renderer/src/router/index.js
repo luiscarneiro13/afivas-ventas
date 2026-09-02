@@ -16,6 +16,7 @@ import ConfiguracionProveedoresView from '@renderer/views/ConfiguracionProveedor
 import ConfiguracionClientesView from '@renderer/views/ConfiguracionClientesView.vue'
 import ConfiguracionUsuariosView from '@renderer/views/ConfiguracionUsuariosView.vue'
 import FiscalizacionView from '@renderer/views/FiscalizacionView.vue'
+import ConfiguracionVentasView from '@renderer/views/ConfiguracionVentasView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -71,6 +72,12 @@ const routes = [
         name: 'fiscalizacion',
         component: FiscalizacionView,
         meta: { title: 'Fiscalización' }
+      },
+      {
+        path: 'configuracion/ventas',
+        name: 'configuracion-ventas',
+        component: ConfiguracionVentasView,
+        meta: { title: 'Configuración · Ventas' }
       }
     ]
   },

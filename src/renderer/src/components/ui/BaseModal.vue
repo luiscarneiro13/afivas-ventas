@@ -5,7 +5,7 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: '' },
   width: { type: String, default: '460px' },
-  closeOnOverlay: { type: Boolean, default: true },
+  closeOnOverlay: { type: Boolean, default: false },
   showHeader: { type: Boolean, default: true }
 })
 const emit = defineEmits(['update:modelValue', 'close'])

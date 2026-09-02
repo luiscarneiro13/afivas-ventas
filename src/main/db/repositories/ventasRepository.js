@@ -14,10 +14,12 @@ function withRelaciones(query) {
     .select(
       'ventas.*',
       'usuarios.nombre_completo as cajero_nombre',
-      'metodos_pago.etiqueta as metodo_pago_etiqueta'
+      'metodos_pago.etiqueta as metodo_pago_etiqueta',
+      'bancos.nombre as banco_nombre'
     )
     .join('usuarios', 'usuarios.id', 'ventas.usuario_id')
     .join('metodos_pago', 'metodos_pago.id', 'ventas.metodo_pago_id')
+    .leftJoin('bancos', 'bancos.id', 'ventas.banco_id')
 }
 
 export function makeVentasRepository(knex) {
@@ -37,6 +39,7 @@ export function makeVentasRepository(knex) {
       recibido,
       vuelto,
       referenciaPago,
+      bancoId,
       tasaCambio
     }) {
       return knex.transaction(async (trx) => {
@@ -68,6 +71,7 @@ export function makeVentasRepository(knex) {
           recibido,
           vuelto,
           referencia_pago: referenciaPago ?? null,
+          banco_id: bancoId ?? null,
           tasa_cambio: tasaCambio
         })
 
@@ -137,6 +141,28 @@ export function makeVentasRepository(knex) {
         .orderBy('cantidad', 'desc')
         .first()
       return row || null
+    },
+
+    // Anular una venta restaura el stock de cada línea y marca la venta
+    // como 'anulada'. No borra el registro: queda como historial/auditoría.
+    async anular(id) {
+      return knex.transaction(async (trx) => {
+        const venta = await trx('ventas').where({ id }).first()
+        if (!venta) {
+          throw new Error('Venta no encontrada.')
+        }
+        if (venta.estado === 'anulada') {
+          throw new Error('Esta venta ya está anulada.')
+        }
+
+        const items = await trx('venta_items').where({ venta_id: id })
+        for (const item of items) {
+          await productos.adjustStock(trx, item.producto_id, item.cantidad)
+        }
+
+        await trx('ventas').where({ id }).update({ estado: 'anulada' })
+        return withRelaciones(trx('ventas')).where('ventas.id', id).first()
+      })
     },
 
     marcarImpresaFiscalmente(id, { numeroFacturaFiscal }) {

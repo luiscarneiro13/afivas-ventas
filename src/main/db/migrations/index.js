@@ -13,6 +13,11 @@ import * as m012 from './012_create_cierres_fiscales_z.js'
 import * as m013 from './013_create_proveedores.js'
 import * as m014 from './014_add_stock_minimo_productos.js'
 import * as m015 from './015_drop_icono_categorias.js'
+import * as m016 from './016_add_contacto_clientes.js'
+import * as m017 from './017_drop_color_categorias.js'
+import * as m018 from './018_create_bancos.js'
+import * as m019 from './019_add_banco_to_ventas.js'
+import * as m020 from './020_make_categoria_opcional_productos.js'
 
 // Lista ordenada y estática: Knex escanea directorios por defecto con
 // fs.readdirSync + require() dinámico, que Rollup no puede resolver dentro
@@ -33,7 +38,12 @@ const MIGRATIONS = [
   { name: '012_create_cierres_fiscales_z.js', module: m012 },
   { name: '013_create_proveedores.js', module: m013 },
   { name: '014_add_stock_minimo_productos.js', module: m014 },
-  { name: '015_drop_icono_categorias.js', module: m015 }
+  { name: '015_drop_icono_categorias.js', module: m015 },
+  { name: '016_add_contacto_clientes.js', module: m016 },
+  { name: '017_drop_color_categorias.js', module: m017 },
+  { name: '018_create_bancos.js', module: m018 },
+  { name: '019_add_banco_to_ventas.js', module: m019 },
+  { name: '020_make_categoria_opcional_productos.js', module: m020 }
 ]
 
 export const migrationSource = {

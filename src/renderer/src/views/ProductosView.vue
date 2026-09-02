@@ -112,7 +112,6 @@ async function confirmDelete() {
         >
           <template #item="{ item }">
             <div class="cat-item">
-              <span class="cat-dot" :style="{ background: item.color }"></span>
               <b>{{ item.nombre }}</b>
             </div>
           </template>
@@ -243,16 +242,6 @@ async function confirmDelete() {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.cat-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
 }
 .table-wrap {
   background: var(--surface);

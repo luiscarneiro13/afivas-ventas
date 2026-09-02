@@ -12,7 +12,10 @@ const props = defineProps({
   items: { type: Array, default: () => [] },
   itemKey: { type: [String, Function], default: null },
   emptyMessage: { type: String, default: 'Sin coincidencias' },
-  showOnEmptyFocus: { type: Boolean, default: false }
+  showOnEmptyFocus: { type: Boolean, default: false },
+  // Clase(s) extra por fila del dropdown. Acepta lo mismo que :class, o una
+  // función (item) => clases, para resaltar filas según su propio dato.
+  itemClass: { type: [String, Object, Array, Function], default: null }
 })
 const emit = defineEmits(['update:modelValue', 'select', 'focus'])
 
@@ -25,6 +28,10 @@ function keyOf(item, index) {
   if (typeof props.itemKey === 'function') return props.itemKey(item)
   if (typeof props.itemKey === 'string') return item[props.itemKey]
   return index
+}
+
+function itemClassOf(item) {
+  return typeof props.itemClass === 'function' ? props.itemClass(item) : props.itemClass
 }
 
 function scrollHighlightedIntoView() {
@@ -112,7 +119,7 @@ defineExpose({ close: () => (open.value = false), focus: () => inputRef.value?.f
           :key="keyOf(item, i)"
           :ref="(el) => (itemRefs[i] = el)"
           class="dropdown-item"
-          :class="{ active: i === highlighted }"
+          :class="[{ active: i === highlighted }, itemClassOf(item)]"
           @click="select(item)"
           @mouseenter="highlighted = i"
         >
@@ -165,6 +172,9 @@ defineExpose({ close: () => (open.value = false), focus: () => inputRef.value?.f
 }
 .dropdown-item:last-child {
   border-bottom: none;
+}
+.dropdown-item.stock-low {
+  background: rgba(249, 115, 22, 0.08);
 }
 .dropdown-item:hover,
 .dropdown-item.active {

@@ -22,7 +22,7 @@ export const useCatalogStore = defineStore('catalog', {
   getters: {
     categories() {
       const categorias = useCategoriasStore()
-      return Object.fromEntries(categorias.items.map((c) => [c.nombre, { color: c.color }]))
+      return Object.fromEntries(categorias.items.map((c) => [c.nombre, c]))
     },
     categoryNames() {
       return Object.keys(this.categories)

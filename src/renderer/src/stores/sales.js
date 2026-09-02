@@ -9,7 +9,9 @@ function mapVenta(venta, items) {
   const metodosPago = useMetodosPagoStore()
   const metodo = metodosPago.items.find((m) => m.id === venta.metodo_pago_id)
   return {
+    id: venta.id,
     numero: venta.numero,
+    estado: venta.estado,
     fecha: new Date(venta.fecha),
     cliente: {
       nombre: venta.cliente_nombre_snapshot,
@@ -54,6 +56,13 @@ export const useSalesStore = defineStore('sales', {
       if (!venta) return null
       return mapVenta(venta, venta.items)
     },
+    // Restaura el stock de cada línea y marca la venta como anulada.
+    async anular(id) {
+      await window.api.ventasAnular(id)
+      const catalog = useCatalogStore()
+      await catalog.fetchAll()
+      await this.fetchAll()
+    },
     /**
      * Registra una venta real en la BD a partir del carrito, descuenta
      * existencias en el backend (dentro de una transacción) y devuelve la
@@ -68,6 +77,7 @@ export const useSalesStore = defineStore('sales', {
       recibido,
       vuelto,
       referenciaPago,
+      bancoId,
       tasaCambio,
       subtotal,
       iva,
@@ -90,6 +100,7 @@ export const useSalesStore = defineStore('sales', {
         recibido,
         vuelto,
         referenciaPago,
+        bancoId,
         tasaCambio
       })
 

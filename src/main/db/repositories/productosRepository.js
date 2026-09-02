@@ -1,11 +1,7 @@
 function withCategoria(query) {
   return query
-    .select(
-      'productos.*',
-      'categorias.nombre as categoria_nombre',
-      'categorias.color as categoria_color'
-    )
-    .join('categorias', 'categorias.id', 'productos.categoria_id')
+    .select('productos.*', 'categorias.nombre as categoria_nombre')
+    .leftJoin('categorias', 'categorias.id', 'productos.categoria_id')
 }
 
 export function makeProductosRepository(knex) {

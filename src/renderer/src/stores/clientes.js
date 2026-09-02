@@ -5,11 +5,6 @@ export const useClientesStore = defineStore('clientes', {
     items: [],
     loading: false
   }),
-  getters: {
-    // El Cliente Eventual (venta sin registrar) viene sembrado en la BD
-    // como una fila real más, marcada con es_eventual — no un objeto aparte.
-    eventual: (state) => state.items.find((c) => c.es_eventual) || null
-  },
   actions: {
     search(query) {
       const q = query.trim().toLowerCase()
@@ -17,6 +12,9 @@ export const useClientesStore = defineStore('clientes', {
       return this.items.filter(
         (c) => !c.es_eventual && (String(c.cedula).includes(q) || c.nombre.toLowerCase().includes(q))
       )
+    },
+    findByCedula(cedula) {
+      return this.items.find((c) => !c.es_eventual && c.cedula === cedula) || null
     },
     async fetchAll() {
       this.loading = true
@@ -27,8 +25,9 @@ export const useClientesStore = defineStore('clientes', {
       }
     },
     async create(payload) {
-      await window.api.clientesCreate(payload)
+      const cliente = await window.api.clientesCreate(payload)
       await this.fetchAll()
+      return cliente
     },
     async update(id, payload) {
       await window.api.clientesUpdate(id, payload)

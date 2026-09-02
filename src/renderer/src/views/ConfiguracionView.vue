@@ -13,6 +13,7 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
         <NavCard icon="inbox" label="Carga de inventario" :to="{ name: 'entrada' }" />
         <NavCard icon="bars" label="Gráficas" :to="{ name: 'reportes' }" />
         <NavCard icon="user" label="Clientes" :to="{ name: 'configuracion-clientes' }" />
+        <NavCard icon="dollar" label="Ventas" :to="{ name: 'configuracion-ventas' }" />
       </div>
     </section>
 

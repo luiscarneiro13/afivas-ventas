@@ -29,12 +29,6 @@ onMounted(() => {
   catalog.fetchAll()
 })
 
-// Si la categoría del producto fue desactivada/eliminada, catalog.categories
-// ya no la incluye — evita que eso rompa la vista.
-function catInfo(catName) {
-  return catalog.categories[catName] || { color: '#9ca3af' }
-}
-
 function selectProduct(item) {
   selectedProduct.value = item
   searchQuery.value = ''
@@ -102,7 +96,6 @@ async function registrar() {
           </SearchDropdown>
         </div>
         <div v-if="selectedProduct" class="selected-product-box">
-          <div class="ptile-sm" :style="{ background: catInfo(selectedProduct.cat).color }"></div>
           <div class="info">
             <b>{{ selectedProduct.desc }}</b>
             <span>{{ selectedProduct.codigo }} · Existencia actual: {{ selectedProduct.existencia }}</span>
@@ -245,17 +238,6 @@ async function registrar() {
   font-size: 11px;
   color: var(--text-muted);
 }
-.selected-product-box .ptile-sm {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
-}
-
 .table-wrap {
   background: var(--surface);
   border-radius: 12px;

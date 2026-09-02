@@ -1,5 +1,7 @@
-// Migra CLIENTS_SEED de dummy.js + inserta explícitamente el "Cliente
-// Eventual" (cedula '000', es_eventual=1) usado para ventas sin cliente.
+// Migra CLIENTS_SEED de dummy.js. Ya no se siembra el "Cliente Eventual":
+// toda venta ahora requiere un cliente real registrado (ver es_eventual en
+// clientesRepository — se conserva solo como resguardo para instalaciones
+// existentes que ya tengan ese registro histórico).
 const CLIENTS_SEED = [
   { cedula: '31179420', nombre: 'Mariana Carneiro', telefono: '0414-1234567' },
   { cedula: '27845213', nombre: 'José Rodríguez', telefono: '0424-9876543' },
@@ -12,13 +14,6 @@ export async function seedClientes(knex) {
   const count = await knex('clientes').count({ c: '*' }).first()
   if (Number(count.c) > 0) return
 
-  await knex('clientes').insert({
-    cedula: '000',
-    tipo_documento: 'V',
-    nombre: 'Cliente Eventual',
-    telefono: null,
-    es_eventual: 1
-  })
   await knex('clientes').insert(
     CLIENTS_SEED.map((c) => ({
       cedula: c.cedula,

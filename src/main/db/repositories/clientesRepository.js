@@ -1,3 +1,11 @@
+const TIPOS_DOCUMENTO_VALIDOS = ['V', 'E', 'J', 'G', 'P']
+
+function assertTipoDocumentoValido(tipoDocumento) {
+  if (!TIPOS_DOCUMENTO_VALIDOS.includes(tipoDocumento)) {
+    throw new Error('El tipo de documento del cliente es obligatorio (V, E, J, G o P).')
+  }
+}
+
 export function makeClientesRepository(knex) {
   return {
     list() {
@@ -18,20 +26,37 @@ export function makeClientesRepository(knex) {
       return knex('clientes').where({ cedula, activo: 1 }).first()
     },
 
-    async create({ cedula, tipoDocumento, nombre, telefono }) {
+    async create({ cedula, tipoDocumento, nombre, direccion, telefono, movil, correo }) {
+      assertTipoDocumentoValido(tipoDocumento)
+      const existente = await knex('clientes').where({ cedula }).first()
+      if (existente) {
+        throw new Error('Ya existe un cliente registrado con esa cédula/RIF.')
+      }
       const [id] = await knex('clientes').insert({
         cedula,
-        tipo_documento: tipoDocumento ?? 'V',
+        tipo_documento: tipoDocumento,
         nombre,
-        telefono
+        direccion: direccion || null,
+        telefono: telefono || null,
+        movil: movil || null,
+        correo: correo || null
       })
       return knex('clientes').where({ id }).first()
     },
 
-    async update(id, { nombre, telefono, tipoDocumento }) {
+    async update(id, { nombre, direccion, telefono, movil, correo, tipoDocumento }) {
+      assertTipoDocumentoValido(tipoDocumento)
       await knex('clientes')
         .where({ id })
-        .update({ nombre, telefono, tipo_documento: tipoDocumento, updated_at: knex.fn.now() })
+        .update({
+          nombre,
+          direccion: direccion || null,
+          telefono: telefono || null,
+          movil: movil || null,
+          correo: correo || null,
+          tipo_documento: tipoDocumento,
+          updated_at: knex.fn.now()
+        })
       return knex('clientes').where({ id }).first()
     },
 
@@ -40,7 +65,11 @@ export function makeClientesRepository(knex) {
       if (cliente?.es_eventual) {
         throw new Error('El Cliente Eventual es un registro del sistema y no puede eliminarse.')
       }
-      return knex('clientes').where({ id }).update({ activo: 0, updated_at: knex.fn.now() })
+      const tieneVentas = await knex('ventas').where({ cliente_id: id }).first()
+      if (tieneVentas) {
+        throw new Error('No se puede eliminar: el cliente tiene ventas registradas.')
+      }
+      return knex('clientes').where({ id }).del()
     }
   }
 }

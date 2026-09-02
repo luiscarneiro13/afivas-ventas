@@ -3,6 +3,7 @@ import { seedCategorias } from './categorias.seed.js'
 import { seedProductos } from './productos.seed.js'
 import { seedClientes } from './clientes.seed.js'
 import { seedMetodosPago } from './metodosPago.seed.js'
+import { seedBancos } from './bancos.seed.js'
 import { seedConfigEmpresa } from './configEmpresa.seed.js'
 import { seedConfigImpresoraFiscal } from './configImpresoraFiscal.seed.js'
 
@@ -14,6 +15,7 @@ export async function runSeeds(knex) {
   await seedProductos(knex)
   await seedClientes(knex)
   await seedMetodosPago(knex)
+  await seedBancos(knex)
   await seedConfigEmpresa(knex)
   await seedConfigImpresoraFiscal(knex)
 }

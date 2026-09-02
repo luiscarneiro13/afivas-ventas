@@ -74,19 +74,14 @@ async function confirmDelete() {
         <thead>
           <tr>
             <th>Categoría</th>
-            <th>Color</th>
             <th></th>
           </tr>
         </thead>
         <tbody v-if="categorias.items.length">
           <tr v-for="c in categorias.items" :key="c.id">
             <td>
-              <div class="cat-cell">
-                <div class="ctile" :style="{ background: c.color }"></div>
-                <b>{{ c.nombre }}</b>
-              </div>
+              <b>{{ c.nombre }}</b>
             </td>
-            <td class="num">{{ c.color }}</td>
             <td>
               <div class="table-actions">
                 <button class="icon-btn" title="Editar" @click="openEdit(c)"><AppIcon name="edit" :size="15" /></button>
@@ -97,7 +92,7 @@ async function confirmDelete() {
         </tbody>
         <tbody v-else>
           <tr>
-            <td colspan="3">
+            <td colspan="2">
               <EmptyState icon="layers" title="Sin categorías" subtitle="Crea la primera categoría de productos" />
             </td>
           </tr>
@@ -191,21 +186,6 @@ table.data-table {
 }
 .data-table tbody tr:hover td {
   background: var(--surface-alt);
-}
-.cat-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ctile {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
 }
 .table-actions {
   display: flex;
