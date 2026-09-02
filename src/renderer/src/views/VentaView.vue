@@ -2,29 +2,38 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCatalogStore } from '@renderer/stores/catalog'
-import { useClientsStore } from '@renderer/stores/clients'
+import { useClientesStore } from '@renderer/stores/clientes'
 import { useCartStore } from '@renderer/stores/cart'
 import { useSalesStore } from '@renderer/stores/sales'
+import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 import { useCajaStore } from '@renderer/stores/caja'
 import { useAuthStore } from '@renderer/stores/auth'
 import { useUiStore } from '@renderer/stores/ui'
-import { fmtUsd, fmtBs, initials } from '@renderer/utils/format'
+import { fmtBs, initials } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
+import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import PagoModal from '@renderer/components/venta/PagoModal.vue'
 import FacturaModal from '@renderer/components/shared/FacturaModal.vue'
+import CantidadExcedeModal from '@renderer/components/venta/CantidadExcedeModal.vue'
 
 const route = useRoute()
 const catalog = useCatalogStore()
-const clientsStore = useClientsStore()
+const clientsStore = useClientesStore()
 const cart = useCartStore()
 const sales = useSalesStore()
+const metodosPago = useMetodosPagoStore()
 const caja = useCajaStore()
 const auth = useAuthStore()
 const ui = useUiStore()
+
+// Igual que fmtBs pero sin el prefijo "Bs", para las columnas de la grilla
+// del carrito donde el encabezado ya deja claro que la cifra es en bolívares.
+const fmtNumBs = (n) =>
+  Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const clientQuery = ref('')
 const productQuery = ref('')
@@ -35,18 +44,21 @@ const pagoOpen = ref(false)
 const facturaOpen = ref(false)
 const facturaSale = ref(null)
 
-const clientItems = computed(() => [clientsStore.eventual, ...clientsStore.search(clientQuery.value)])
+const clientItems = computed(() =>
+  [clientsStore.eventual, ...clientsStore.search(clientQuery.value)].filter(Boolean)
+)
 const productItems = computed(() => catalog.search(productQuery.value, 8))
 
 function estadoProducto(p) {
   if (p.existencia === 0) return 'Agotado'
-  if (p.existencia <= 3) return `¡Quedan ${p.existencia}!`
+  if (p.existencia <= (p.stockMinimo ?? 3)) return `¡Quedan ${p.existencia}!`
   return `Exist: ${p.existencia}`
 }
 
 function selectClient(c) {
-  cart.setCliente(c.cedula === clientsStore.eventual.cedula ? clientsStore.eventual : c)
+  cart.setCliente(c.cedula === clientsStore.eventual?.cedula ? clientsStore.eventual : c)
   clientQuery.value = ''
+  clienteInvalido.value = false
 }
 function quitarCliente() {
   cart.setCliente(null)
@@ -58,39 +70,108 @@ function selectProduct(p) {
   focusProductSearch()
 }
 
-function onQtyChange(codigo, valor) {
-  cart.setQty(codigo, valor)
+const qtyModalOpen = ref(false)
+const qtyModalCodigo = ref(null)
+const qtyModalDesc = ref('')
+const qtyModalSolicitado = ref(0)
+const qtyModalDisponible = ref(0)
+
+function checkLowStock(p, qty) {
+  const restante = p.existencia - qty
+  const minimo = p.stockMinimo ?? 3
+  if (restante <= minimo && restante > 0) {
+    ui.toast(`Quedan solo ${restante} unidades de "${p.desc}"`, 'warning')
+  }
 }
 
-function cancelarVenta() {
-  if (cart.items.length === 0) return
-  cart.clear()
-  ui.toast('Venta cancelada', 'info')
+function onQtyChange(codigo, e) {
+  const item = cart.items.find((x) => x.codigo === codigo)
+  const p = catalog.findByCodigo(codigo)
+  if (!item || !p) return
+  const qty = Math.floor(Number(e.target.value))
+  if (!qty || qty <= 0) {
+    cart.removeProduct(codigo)
+    return
+  }
+  if (qty > p.existencia) {
+    // Revertimos el texto mostrado: item.cantidad no cambió, así que el
+    // binding :value no repinta el input solo por eso.
+    e.target.value = item.cantidad
+    qtyModalCodigo.value = codigo
+    qtyModalDesc.value = p.desc
+    qtyModalSolicitado.value = qty
+    qtyModalDisponible.value = p.existencia
+    qtyModalOpen.value = true
+    return
+  }
+  cart.setQty(codigo, qty)
+  checkLowStock(p, qty)
 }
+
+function onQtyModalConfirm(qty) {
+  const codigo = qtyModalCodigo.value
+  const p = catalog.findByCodigo(codigo)
+  cart.setQty(codigo, qty)
+  if (p) checkLowStock(p, qty)
+}
+
+function selectQtyContent(e) {
+  e.target.select()
+}
+
+const anularConfirmOpen = ref(false)
+
+function pedirAnularVenta() {
+  if (cart.items.length === 0) return
+  anularConfirmOpen.value = true
+}
+function anularVenta() {
+  cart.clear()
+  ui.toast('Venta anulada', 'info')
+}
+
+const clienteInvalido = ref(false)
 
 function abrirPago() {
   if (cart.items.length === 0) return
+  if (!cart.cliente) {
+    clienteInvalido.value = true
+    focusClientSearch()
+    ui.toast('Selecciona un cliente antes de cobrar', 'error')
+    return
+  }
   pagoOpen.value = true
 }
 
-function onFinalizar({ methodId, recibido, vuelto }) {
+async function onFinalizar({ methodId, recibido, vuelto, referencia }) {
   const cliente = cart.cliente || clientsStore.eventual
-  const sale = sales.registrarVenta({
-    items: cart.items,
-    cliente,
-    cajero: auth.cajero,
-    methodId,
-    recibido,
-    vuelto,
-    subtotal: cart.subtotal,
-    iva: cart.iva,
-    total: cart.total
-  })
-  facturaSale.value = sale
-  pagoOpen.value = false
-  facturaOpen.value = true
-  cart.clear()
-  ui.toast('Venta finalizada con éxito', 'success')
+  if (!cliente) {
+    ui.toast('No se pudo determinar el cliente de la venta', 'error')
+    return
+  }
+  try {
+    const sale = await sales.registrarVenta({
+      items: cart.items,
+      clienteId: cliente.id,
+      sesionCajaId: caja.id,
+      usuarioId: auth.usuarioId,
+      metodoPagoId: methodId,
+      recibido,
+      vuelto,
+      referenciaPago: referencia || null,
+      tasaCambio: caja.tasa,
+      subtotal: cart.subtotal,
+      iva: cart.iva,
+      total: cart.total
+    })
+    facturaSale.value = sale
+    pagoOpen.value = false
+    facturaOpen.value = true
+    cart.clear()
+    ui.toast('Venta finalizada con éxito', 'success')
+  } catch (e) {
+    ui.toast(e?.message || 'No se pudo registrar la venta', 'error')
+  }
 }
 
 function onNewSale() {
@@ -98,10 +179,10 @@ function onNewSale() {
 }
 
 function focusProductSearch() {
-  productSearchRef.value?.$el?.querySelector('input')?.focus()
+  productSearchRef.value?.focus?.()
 }
 function focusClientSearch() {
-  clientSearchRef.value?.$el?.querySelector('input')?.focus()
+  clientSearchRef.value?.focus?.()
 }
 
 function handleKeydown(e) {
@@ -135,6 +216,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
               v-if="!cart.cliente"
               ref="clientSearchRef"
               v-model="clientQuery"
+              class="client-search"
+              :class="{ invalid: clienteInvalido }"
               placeholder="Buscar o ingresar cliente"
               kbd="F2"
               :items="clientItems"
@@ -143,9 +226,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
               @select="selectClient"
             >
               <template #item="{ item }">
-                <b>{{ item.cedula === clientsStore.eventual.cedula ? 'Cliente Eventual' : item.nombre }}</b>
+                <b>{{ item.cedula === clientsStore.eventual?.cedula ? 'Cliente Eventual' : item.nombre }}</b>
                 <span>
-                  {{ item.cedula === clientsStore.eventual.cedula ? 'Venta sin registrar' : `C.I. ${item.cedula}` }}
+                  {{ item.cedula === clientsStore.eventual?.cedula ? 'Venta sin registrar' : `C.I. ${item.cedula}` }}
                 </span>
               </template>
             </SearchDropdown>
@@ -172,7 +255,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
             >
               <template #item="{ item }">
                 <b>{{ item.desc }}</b>
-                <span>{{ item.codigo }} · {{ fmtUsd(item.precio) }} · {{ estadoProducto(item) }}</span>
+                <span>{{ item.codigo }} · {{ fmtBs(item.precio * caja.tasa) }} · {{ estadoProducto(item) }}</span>
               </template>
             </SearchDropdown>
           </div>
@@ -189,9 +272,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <th style="width: 38px">#</th>
                 <th style="width: 78px">Código</th>
                 <th>Producto</th>
-                <th style="width: 90px">P. Unit.</th>
+                <th style="width: 135px">P.Uni. (Bs)</th>
                 <th style="width: 80px">Cantidad</th>
-                <th style="width: 100px">Subtotal</th>
+                <th style="width: 135px">Subtotal (Bs)</th>
                 <th style="width: 36px"></th>
               </tr>
             </thead>
@@ -209,17 +292,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <td class="num">{{ i + 1 }}</td>
                 <td class="num">{{ item.codigo }}</td>
                 <td>{{ item.desc }}</td>
-                <td class="num">{{ fmtUsd(item.precio) }}</td>
+                <td class="num">{{ fmtNumBs(item.precio * caja.tasa) }}</td>
                 <td>
                   <input
                     type="text"
                     inputmode="numeric"
                     class="vb-qty-input"
                     :value="item.cantidad"
-                    @change="onQtyChange(item.codigo, $event.target.value)"
+                    @change="onQtyChange(item.codigo, $event)"
+                    @focus="selectQtyContent"
+                    @click="selectQtyContent"
                   />
                 </td>
-                <td class="num">{{ fmtUsd(item.precio * item.cantidad) }}</td>
+                <td class="num">{{ fmtNumBs(item.precio * item.cantidad * caja.tasa) }}</td>
                 <td>
                   <button class="vb-row-del" title="Quitar" @click="cart.removeProduct(item.codigo)">
                     <AppIcon name="x" :size="13" />
@@ -234,17 +319,16 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       <div class="vb-right">
         <div class="vb-right-title">Resumen de venta</div>
         <div class="vb-totals">
-          <div><span>Subtotal</span><b class="num">{{ fmtUsd(cart.subtotal) }}</b></div>
-          <div><span>IVA (16%)</span><b class="num">{{ fmtUsd(cart.iva) }}</b></div>
-          <div><span>Bs.</span><b class="num">{{ fmtBs(cart.totalBs) }}</b></div>
-          <div class="tot"><span>Total</span><b class="num">{{ fmtUsd(cart.total) }}</b></div>
+          <div><span>Subtotal</span><b class="num">{{ fmtBs(cart.subtotalBs) }}</b></div>
+          <div><span>IVA (16%)</span><b class="num">{{ fmtBs(cart.ivaBs) }}</b></div>
+          <div class="tot"><span>Total</span><b class="num">{{ fmtBs(cart.totalBs) }}</b></div>
         </div>
         <button class="checkout-btn" :disabled="cart.items.length === 0" @click="abrirPago">
           <span>Cobrar</span>
-          <span class="num">{{ fmtUsd(cart.total) }}</span>
+          <span class="num">{{ fmtBs(cart.totalBs) }}</span>
         </button>
-        <BaseButton variant="ghost" size="sm" block style="margin-top: 10px" @click="cancelarVenta">
-          Cancelar venta
+        <BaseButton variant="ghost" size="sm" block style="margin-top: 10px" @click="pedirAnularVenta">
+          Anular venta
         </BaseButton>
       </div>
     </div>
@@ -253,10 +337,25 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       v-model="pagoOpen"
       :total="cart.total"
       :total-bs="cart.totalBs"
-      :pay-methods="sales.payMethods"
+      :pay-methods="metodosPago.items"
       @finalizar="onFinalizar"
     />
     <FacturaModal v-model="facturaOpen" :sale="facturaSale" mode="sale" @new-sale="onNewSale" />
+    <CantidadExcedeModal
+      v-model="qtyModalOpen"
+      :desc="qtyModalDesc"
+      :solicitado="qtyModalSolicitado"
+      :disponible="qtyModalDisponible"
+      @confirm="onQtyModalConfirm"
+    />
+    <ConfirmModal
+      v-model="anularConfirmOpen"
+      title="¿Anular venta?"
+      text="Se quitarán todos los productos del carrito. Esta acción no se puede deshacer."
+      icon="trash"
+      confirm-label="Anular venta"
+      @confirm="anularVenta"
+    />
   </div>
 </template>
 
@@ -361,6 +460,7 @@ table.vb-datagrid {
 .vb-datagrid tbody td:nth-child(5) {
   padding-left: 6px;
   padding-right: 6px;
+  text-align: center;
 }
 .vb-datagrid tbody td:last-child {
   border-right: none;
@@ -400,6 +500,12 @@ table.vb-datagrid {
 .vb-row-del:hover {
   background: var(--danger-light);
   color: var(--danger);
+}
+
+.client-search.invalid :deep(input),
+.client-search.invalid :deep(input:focus) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-light);
 }
 
 .client-selected {

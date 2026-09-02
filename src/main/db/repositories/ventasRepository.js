@@ -97,7 +97,17 @@ export function makeVentasRepository(knex) {
     },
 
     list({ desde, hasta, usuarioId, sesionCajaId } = {}) {
-      let query = withRelaciones(knex('ventas')).orderBy('ventas.fecha', 'desc')
+      // Subquery de cantidad de items en vez de traer venta_items completos:
+      // list() se usa para tablas/resúmenes, no para el detalle de factura
+      // (eso lo resuelve findByNumero).
+      let query = withRelaciones(knex('ventas'))
+        .select(
+          knex('venta_items')
+            .where('venta_items.venta_id', knex.raw('ventas.id'))
+            .sum({ total: 'cantidad' })
+            .as('items_count')
+        )
+        .orderBy('ventas.fecha', 'desc')
       if (desde) query = query.andWhere('ventas.fecha', '>=', desde)
       if (hasta) query = query.andWhere('ventas.fecha', '<=', hasta)
       if (usuarioId) query = query.andWhere('ventas.usuario_id', usuarioId)
@@ -110,6 +120,23 @@ export function makeVentasRepository(knex) {
       if (!venta) return null
       const items = await knex('venta_items').where({ venta_id: venta.id })
       return { ...venta, items }
+    },
+
+    // Agregado en SQL en vez de traer todos los venta_items al renderer:
+    // evita cargar el historial completo solo para calcular un dato.
+    async topProducto() {
+      const row = await knex('venta_items')
+        .join('ventas', 'ventas.id', 'venta_items.venta_id')
+        .where('ventas.estado', 'completada')
+        .groupBy('venta_items.codigo_snapshot', 'venta_items.descripcion_snapshot')
+        .select(
+          'venta_items.codigo_snapshot as codigo',
+          'venta_items.descripcion_snapshot as descripcion'
+        )
+        .sum({ cantidad: 'venta_items.cantidad' })
+        .orderBy('cantidad', 'desc')
+        .first()
+      return row || null
     },
 
     marcarImpresaFiscalmente(id, { numeroFacturaFiscal }) {

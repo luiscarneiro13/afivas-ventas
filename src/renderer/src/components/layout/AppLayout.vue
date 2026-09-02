@@ -5,19 +5,21 @@ import ContentHeader from './ContentHeader.vue'
 import { useCatalogStore } from '@renderer/stores/catalog'
 import { useCategoriasStore } from '@renderer/stores/categorias'
 import { useSalesStore } from '@renderer/stores/sales'
+import { useClientesStore } from '@renderer/stores/clientes'
+import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 
 const catalog = useCatalogStore()
 const categorias = useCategoriasStore()
 const sales = useSalesStore()
+const clientes = useClientesStore()
+const metodosPago = useMetodosPagoStore()
 
 // Carga una sola vez, al entrar a la app, para que Venta/Reportes tengan
-// productos y categorías reales sin que cada vista repita el fetch.
-// sales.seed() necesita catalog.products ya cargado (busca productos por
-// código), por eso va después del fetchAll y no en LoginView.
+// datos reales sin que cada vista repita el fetch. metodosPago debe estar
+// listo antes que sales.fetchAll() (mapVenta busca el método por id).
 onMounted(async () => {
-  await categorias.fetchAll()
-  await catalog.fetchAll()
-  if (!sales.sales.length) sales.seed()
+  await Promise.all([categorias.fetchAll(), catalog.fetchAll(), clientes.fetchAll(), metodosPago.fetchAll()])
+  await sales.fetchAll()
 })
 </script>
 

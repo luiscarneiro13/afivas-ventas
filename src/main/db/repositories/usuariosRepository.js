@@ -59,6 +59,10 @@ export function makeUsuariosRepository(knex) {
     },
 
     async desactivar(id) {
+      const row = await knex('usuarios').where({ id }).first()
+      if (row?.usuario === 'admin') {
+        throw new Error('El usuario "admin" no se puede desactivar')
+      }
       await knex('usuarios').where({ id }).update({ activo: 0, updated_at: knex.fn.now() })
     }
   }

@@ -2,14 +2,11 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCajaStore } from '@renderer/stores/caja'
-import { useCartStore } from '@renderer/stores/cart'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
-import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const caja = useCajaStore()
-const cart = useCartStore()
 
 const title = computed(() => route.meta.title || '')
 
@@ -21,14 +18,6 @@ function commitTasa() {
     caja.tasa = parsed
   }
   tasaText.value = String(caja.tasa)
-}
-
-const confirmCerrarCaja = ref(false)
-
-function cerrarCaja() {
-  cart.clear()
-  caja.cerrar()
-  router.push({ name: 'caja' })
 }
 </script>
 
@@ -49,17 +38,8 @@ function cerrarCaja() {
         <span>Bs/$</span>
       </div>
       <div class="pill">Caja: <b>{{ caja.abierta ? 'Abierta' : 'Cerrada' }}</b></div>
-      <BaseButton variant="danger" size="sm" @click="confirmCerrarCaja = true">Cerrar caja</BaseButton>
+      <BaseButton variant="danger" size="sm" @click="router.push({ name: 'fiscalizacion' })">Fiscalización</BaseButton>
     </div>
-
-    <ConfirmModal
-      v-model="confirmCerrarCaja"
-      title="¿Cerrar caja?"
-      text="Se vaciará el carrito de venta actual y deberás capturar una nueva tasa para reabrir."
-      icon="lock"
-      confirm-label="Cerrar caja"
-      @confirm="cerrarCaja"
-    />
   </header>
 </template>
 

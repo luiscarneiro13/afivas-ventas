@@ -18,6 +18,16 @@ export const useCartStore = defineStore('cart', {
     total() {
       return round2(this.subtotal + this.iva)
     },
+    // Los productos se cargan y almacenan en dólares; los bolívares siempre
+    // se calculan al vuelo con la tasa vigente, nunca se guardan como base.
+    subtotalBs() {
+      const caja = useCajaStore()
+      return this.subtotal * caja.tasa
+    },
+    ivaBs() {
+      const caja = useCajaStore()
+      return this.iva * caja.tasa
+    },
     totalBs() {
       const caja = useCajaStore()
       return this.total * caja.tasa
@@ -41,17 +51,20 @@ export const useCartStore = defineStore('cart', {
       if (item) {
         item.cantidad++
       } else {
-        this.items.push({ codigo: p.codigo, desc: p.desc, precio: p.precio, cantidad: 1 })
+        this.items.push({ productoId: p.id, codigo: p.codigo, desc: p.desc, precio: p.precio, cantidad: 1 })
       }
       const restante = p.existencia - (enCarrito + 1)
-      if (restante <= 3 && restante > 0) {
+      const minimo = p.stockMinimo ?? 3
+      if (restante <= minimo && restante > 0) {
         ui.toast(`Quedan solo ${restante} unidades de "${p.desc}"`, 'warning')
       }
       ui.toast(`"${p.desc}" agregado a la venta`, 'success', 'cart')
     },
+    // Aplica una cantidad ya validada por el llamador (VentaView decide si
+    // hace falta mostrar el modal de "existencia insuficiente" antes de
+    // llegar aquí). Igual se hace un clamp defensivo por si acaso.
     setQty(codigo, valor) {
       const catalog = useCatalogStore()
-      const ui = useUiStore()
       const item = this.items.find((x) => x.codigo === codigo)
       const p = catalog.findByCodigo(codigo)
       if (!item) return
@@ -60,12 +73,7 @@ export const useCartStore = defineStore('cart', {
         this.removeProduct(codigo)
         return
       }
-      if (qty > p.existencia) {
-        ui.toast('No hay más existencia disponible', 'warning')
-        item.cantidad = p.existencia
-        return
-      }
-      item.cantidad = qty
+      item.cantidad = p ? Math.min(qty, p.existencia) : qty
     },
     removeProduct(codigo) {
       this.items = this.items.filter((x) => x.codigo !== codigo)

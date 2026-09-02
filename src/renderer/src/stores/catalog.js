@@ -9,7 +9,8 @@ function mapProducto(row) {
     cat: row.categoria_nombre,
     categoriaId: row.categoria_id,
     precio: Number(row.precio),
-    existencia: row.existencia
+    existencia: row.existencia,
+    stockMinimo: row.stock_minimo
   }
 }
 
@@ -21,9 +22,7 @@ export const useCatalogStore = defineStore('catalog', {
   getters: {
     categories() {
       const categorias = useCategoriasStore()
-      return Object.fromEntries(
-        categorias.items.map((c) => [c.nombre, { icon: c.icono, color: c.color }])
-      )
+      return Object.fromEntries(categorias.items.map((c) => [c.nombre, { color: c.color }]))
     },
     categoryNames() {
       return Object.keys(this.categories)
@@ -52,7 +51,7 @@ export const useCatalogStore = defineStore('catalog', {
     exists(codigo) {
       return this.products.some((p) => p.codigo === codigo)
     },
-    async create({ codigo, desc, cat, precio, existencia }) {
+    async create({ codigo, desc, cat, precio, existencia, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
@@ -61,18 +60,20 @@ export const useCatalogStore = defineStore('catalog', {
         descripcion: desc,
         categoriaId: categoria.id,
         precio,
-        existencia
+        existencia,
+        stockMinimo
       })
       await this.fetchAll()
     },
-    async update(codigo, { desc, cat, precio }) {
+    async update(codigo, { desc, cat, precio, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
       await window.api.productosUpdate(codigo, {
         descripcion: desc,
         categoriaId: categoria.id,
-        precio
+        precio,
+        stockMinimo
       })
       await this.fetchAll()
     },

@@ -95,6 +95,26 @@ function printReporteX(comPort) {
   })
 }
 
+// Imprime el Reporte Z: cierre fiscal del día, resetea los acumulados de la
+// impresora (a diferencia del Reporte X). Comando "I0Z" vía SendCmd. Es una
+// operación irreversible en el equipo fiscal real.
+function printReporteZ(comPort) {
+  return withTfhka(comPort, (lib) => {
+    const SendCmd = lib.func('bool __stdcall SendCmd(_Out_ int *status, _Out_ int *error, const char *cmd)')
+
+    const statusOut = [0]
+    const errorOut = [0]
+    if (!SendCmd(statusOut, errorOut, 'I0Z')) {
+      return {
+        ok: false,
+        message: `No se pudo imprimir el Reporte Z (estado: ${statusOut[0]}, error: ${errorOut[0]}).`
+      }
+    }
+
+    return { ok: true, message: 'Reporte Z enviado a la impresora.' }
+  })
+}
+
 // Los puertos COM activos quedan registrados por Windows en esta clave del
 // registro (DEVICEMAP\SERIALCOMM), sea el puerto físico o un adaptador
 // USB-serial con su driver instalado. Es más fiable que `wmic` (deprecado
@@ -161,6 +181,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('ports:scan', scanComPorts)
   ipcMain.handle('tfhka:test', (_event, comPort) => testTfhka(comPort))
   ipcMain.handle('tfhka:printReporteX', (_event, comPort) => printReporteX(comPort))
+  ipcMain.handle('tfhka:printReporteZ', (_event, comPort) => printReporteZ(comPort))
 
   createWindow()
 

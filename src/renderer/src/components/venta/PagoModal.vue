@@ -57,7 +57,12 @@ function finalizar() {
     }
     vueltoFinal = round2(recibido - props.total)
   }
-  emit('finalizar', { methodId: method.id, recibido, vuelto: vueltoFinal })
+  emit('finalizar', {
+    methodId: method.id,
+    recibido,
+    vuelto: vueltoFinal,
+    referencia: method.cash ? '' : referencia.value.trim()
+  })
 }
 </script>
 

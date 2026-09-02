@@ -7,7 +7,6 @@ import { useCategoriasStore } from '@renderer/stores/categorias'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
-import CatChip from '@renderer/components/ui/CatChip.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import ProductoModal from '@renderer/components/productos/ProductoModal.vue'
@@ -53,14 +52,8 @@ const filteredProducts = computed(() => {
 
 function badgeInfo(p) {
   if (p.existencia === 0) return { variant: 'out', text: 'Agotado' }
-  if (p.existencia <= 3) return { variant: 'low', text: `Quedan ${p.existencia}` }
+  if (p.existencia <= (p.stockMinimo ?? 3)) return { variant: 'low', text: `Quedan ${p.existencia}` }
   return { variant: 'ok', text: 'En stock' }
-}
-
-// Si la categoría del producto fue desactivada/eliminada, catalog.categories
-// ya no la incluye — evita que un solo producto así rompa toda la tabla.
-function catInfo(catName) {
-  return catalog.categories[catName] || { icon: 'box', color: '#9ca3af' }
 }
 
 const modalOpen = ref(false)
@@ -119,24 +112,26 @@ async function confirmDelete() {
         >
           <template #item="{ item }">
             <div class="cat-item">
-              <span class="cat-dot" :style="{ background: item.color }">
-                <AppIcon :name="item.icono" :size="12" />
-              </span>
+              <span class="cat-dot" :style="{ background: item.color }"></span>
               <b>{{ item.nombre }}</b>
             </div>
           </template>
         </SearchDropdown>
-        <button type="button" class="export-btn" title="Exportar a Excel">
-          <AppIcon name="excel" :size="15" />
-        </button>
-        <button type="button" class="export-btn" title="Exportar a PDF">
-          <AppIcon name="pdf" :size="15" />
-        </button>
       </div>
-      <BaseButton variant="primary" size="sm" @click="openCreate">
-        <AppIcon name="plus" :size="14" />
-        Nuevo producto
-      </BaseButton>
+      <div class="vt-actions">
+        <BaseButton variant="ghost" size="sm">
+          <AppIcon name="excel" :size="15" />
+          Exportar
+        </BaseButton>
+        <BaseButton variant="ghost" size="sm">
+          <AppIcon name="excel" :size="15" />
+          Importar
+        </BaseButton>
+        <BaseButton variant="primary" size="sm" @click="openCreate">
+          <AppIcon name="plus" :size="14" />
+          Nuevo producto
+        </BaseButton>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -160,16 +155,11 @@ async function confirmDelete() {
           <tr v-for="p in filteredProducts" :key="p.codigo">
             <td>
               <div class="prod-cell">
-                <div class="ptile-sm" :style="{ background: catInfo(p.cat).color }">
-                  <AppIcon :name="catInfo(p.cat).icon" :size="15" />
-                </div>
-                <div>
-                  <b>{{ p.desc }}</b>
-                  <span>{{ p.codigo }}</span>
-                </div>
+                <b>{{ p.desc }}</b>
+                <span>{{ p.codigo }}</span>
               </div>
             </td>
-            <td><CatChip :label="p.cat" :color="catInfo(p.cat).color" /></td>
+            <td>{{ p.cat }}</td>
             <td class="num">{{ fmtUsd(p.precio) }}</td>
             <td class="num">{{ fmtBs(p.precio * caja.tasa) }}</td>
             <td><BaseBadge :variant="badgeInfo(p).variant">{{ badgeInfo(p).text }}</BaseBadge></td>
@@ -242,6 +232,12 @@ async function confirmDelete() {
   flex: 1;
   max-width: 220px;
   align-self: flex-start;
+}
+.vt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .cat-item {
   display: flex;
@@ -318,21 +314,6 @@ table.data-table {
 .icon-btn.danger:hover {
   background: var(--danger-light);
   color: var(--danger);
-}
-.prod-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.prod-cell .ptile-sm {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
 }
 .prod-cell b {
   font-size: 12.5px;

@@ -3,7 +3,6 @@ function withCategoria(query) {
     .select(
       'productos.*',
       'categorias.nombre as categoria_nombre',
-      'categorias.icono as categoria_icono',
       'categorias.color as categoria_color'
     )
     .join('categorias', 'categorias.id', 'productos.categoria_id')
@@ -27,21 +26,28 @@ export function makeProductosRepository(knex) {
         .orderBy('productos.codigo')
     },
 
-    async create({ codigo, descripcion, categoriaId, precio, existencia }) {
+    async create({ codigo, descripcion, categoriaId, precio, existencia, stockMinimo }) {
       const [id] = await knex('productos').insert({
         codigo,
         descripcion,
         categoria_id: categoriaId,
         precio,
-        existencia: existencia ?? 0
+        existencia: existencia ?? 0,
+        stock_minimo: stockMinimo ?? 3
       })
       return withCategoria(knex('productos')).where('productos.id', id).first()
     },
 
-    async update(codigo, { descripcion, categoriaId, precio }) {
+    async update(codigo, { descripcion, categoriaId, precio, stockMinimo }) {
       await knex('productos')
         .where({ codigo })
-        .update({ descripcion, categoria_id: categoriaId, precio, updated_at: knex.fn.now() })
+        .update({
+          descripcion,
+          categoria_id: categoriaId,
+          precio,
+          stock_minimo: stockMinimo ?? 3,
+          updated_at: knex.fn.now()
+        })
       return withCategoria(knex('productos')).where('productos.codigo', codigo).first()
     },
 

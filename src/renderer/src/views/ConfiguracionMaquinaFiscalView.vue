@@ -39,6 +39,16 @@ async function probarTfhka() {
       ok: false,
       message: 'API no disponible'
     }
+    // Recuerda el puerto que funcionó, para que Fiscalización (Reporte X/Z)
+    // no tenga que volver a pedirlo.
+    if (tfhkaResult.value.ok) {
+      await window.api?.configImpresoraUpdate?.({
+        puertoCom: selectedPort.value,
+        conector: 'tfhkaif',
+        ultimoTestOk: true,
+        ultimoTestMensaje: tfhkaResult.value.message
+      })
+    }
   } finally {
     tfhkaTesting.value = false
   }
@@ -76,7 +86,11 @@ async function scan() {
   }
 }
 
-onMounted(scan)
+onMounted(async () => {
+  const config = await window.api?.configImpresoraGet?.()
+  if (config?.puerto_com) selectedPort.value = config.puerto_com
+  await scan()
+})
 </script>
 
 <template>

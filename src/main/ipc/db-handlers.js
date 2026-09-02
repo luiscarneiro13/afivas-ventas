@@ -41,6 +41,7 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('ventas:registrar', (_e, payload) => repos.ventas.registrar(payload))
   ipcMain.handle('ventas:list', (_e, filtros) => repos.ventas.list(filtros))
   ipcMain.handle('ventas:findByNumero', (_e, numero) => repos.ventas.findByNumero(numero))
+  ipcMain.handle('ventas:topProducto', () => repos.ventas.topProducto())
   ipcMain.handle('ventas:marcarImpresaFiscalmente', (_e, id, payload) =>
     repos.ventas.marcarImpresaFiscalmente(id, payload)
   )

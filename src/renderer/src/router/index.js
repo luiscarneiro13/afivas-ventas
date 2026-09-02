@@ -15,6 +15,7 @@ import ConfiguracionCategoriasView from '@renderer/views/ConfiguracionCategorias
 import ConfiguracionProveedoresView from '@renderer/views/ConfiguracionProveedoresView.vue'
 import ConfiguracionClientesView from '@renderer/views/ConfiguracionClientesView.vue'
 import ConfiguracionUsuariosView from '@renderer/views/ConfiguracionUsuariosView.vue'
+import FiscalizacionView from '@renderer/views/FiscalizacionView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -64,6 +65,12 @@ const routes = [
         name: 'configuracion-usuarios',
         component: ConfiguracionUsuariosView,
         meta: { title: 'Configuración · Usuarios' }
+      },
+      {
+        path: 'fiscalizacion',
+        name: 'fiscalizacion',
+        component: FiscalizacionView,
+        meta: { title: 'Fiscalización' }
       }
     ]
   },

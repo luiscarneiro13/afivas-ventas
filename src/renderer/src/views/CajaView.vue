@@ -2,19 +2,29 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCajaStore } from '@renderer/stores/caja'
+import { useAuthStore } from '@renderer/stores/auth'
 import { useUiStore } from '@renderer/stores/ui'
 import logoUrl from '@renderer/assets/images/logo.png'
 
 const router = useRouter()
 const caja = useCajaStore()
+const auth = useAuthStore()
 const ui = useUiStore()
 
 const tasa = ref('189.35')
+const aperturando = ref(false)
 
-function aperturar() {
-  caja.aperturar(tasa.value)
-  ui.toast('Caja aperturada correctamente', 'success')
-  router.push({ name: 'venta' })
+async function aperturar() {
+  aperturando.value = true
+  try {
+    await caja.aperturar(tasa.value, auth.usuarioId)
+    ui.toast('Caja aperturada correctamente', 'success')
+    router.push({ name: 'venta' })
+  } catch (e) {
+    ui.toast(e?.message || 'No se pudo aperturar la caja', 'error')
+  } finally {
+    aperturando.value = false
+  }
 }
 </script>
 
@@ -28,8 +38,13 @@ function aperturar() {
         <label>Tasa de cambio (Bs/$)</label>
         <input v-model="tasa" type="text" inputmode="decimal" placeholder="Ej. 189.35" />
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top: 20px" @click="aperturar">
-        Aperturar caja
+      <button
+        class="btn btn-primary btn-block"
+        style="margin-top: 20px"
+        :disabled="aperturando"
+        @click="aperturar"
+      >
+        {{ aperturando ? 'Aperturando...' : 'Aperturar caja' }}
       </button>
     </div>
   </section>

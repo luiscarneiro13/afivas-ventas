@@ -1,7 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSalesStore } from '@renderer/stores/sales'
-import { useCatalogStore } from '@renderer/stores/catalog'
 import { useCajaStore } from '@renderer/stores/caja'
 import { fmtUsd, fmtBs, fmtDateTime, isSameDay } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
@@ -10,7 +9,6 @@ import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import FacturaModal from '@renderer/components/shared/FacturaModal.vue'
 
 const salesStore = useSalesStore()
-const catalog = useCatalogStore()
 const caja = useCajaStore()
 
 const todaySales = computed(() => salesStore.sales.filter((s) => isSameDay(s.fecha, new Date())))
@@ -18,24 +16,15 @@ const ventasHoy = computed(() => todaySales.value.reduce((a, s) => a + s.total, 
 const facturasHoy = computed(() => todaySales.value.length)
 const ticketProm = computed(() => (facturasHoy.value ? ventasHoy.value / facturasHoy.value : 0))
 
-const topProduct = computed(() => {
-  const qtyByCode = {}
-  salesStore.sales.forEach((s) =>
-    s.items.forEach((i) => {
-      qtyByCode[i.codigo] = (qtyByCode[i.codigo] || 0) + i.cantidad
-    })
-  )
-  let topCodigo = null
-  let topQty = 0
-  Object.entries(qtyByCode).forEach(([c, q]) => {
-    if (q > topQty) {
-      topQty = q
-      topCodigo = c
-    }
-  })
-  const producto = topCodigo ? catalog.findByCodigo(topCodigo) : null
-  return { producto, qty: topQty }
-})
+// Agregado en SQL (ver ventas:topProducto) en vez de sumar en memoria sobre
+// todas las ventas — evita tener que cargar los items de cada una.
+const topProduct = ref({ producto: null, qty: 0 })
+async function loadTopProduct() {
+  const row = await window.api?.ventasTopProducto?.()
+  topProduct.value = row
+    ? { producto: { desc: row.descripcion }, qty: Number(row.cantidad) }
+    : { producto: null, qty: 0 }
+}
 
 const chartDays = computed(() => {
   const days = []
@@ -61,15 +50,20 @@ const facturaOpen = ref(false)
 const facturaMode = ref('view')
 const selectedSale = ref(null)
 
-function openSale(sale) {
-  selectedSale.value = sale
+async function openSale(sale) {
+  // La lista (para la tabla) no trae los items — se piden al detalle solo
+  // cuando el usuario realmente quiere ver esa factura.
+  const detalle = await salesStore.fetchDetalle(sale.numero)
+  if (!detalle) return
+  selectedSale.value = detalle
   facturaMode.value = 'view'
   facturaOpen.value = true
 }
 
-function itemCount(sale) {
-  return sale.items.reduce((a, i) => a + i.cantidad, 0)
-}
+onMounted(async () => {
+  await salesStore.fetchAll()
+  await loadTopProduct()
+})
 </script>
 
 <template>
@@ -144,7 +138,7 @@ function itemCount(sale) {
             <td class="num">#{{ String(sale.numero).padStart(6, '0') }}</td>
             <td class="num">{{ fmtDateTime(sale.fecha) }}</td>
             <td>{{ sale.cliente.nombre }}</td>
-            <td>{{ itemCount(sale) }}</td>
+            <td>{{ sale.itemsCount }}</td>
             <td class="num" style="font-weight: 700">{{ fmtUsd(sale.total) }}</td>
             <td><span class="badge ok">{{ sale.method.label }}</span></td>
           </tr>

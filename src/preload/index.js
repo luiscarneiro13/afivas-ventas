@@ -10,6 +10,7 @@ const api = {
   scanComPorts: () => ipcRenderer.invoke('ports:scan'),
   testTfhka: (comPort) => ipcRenderer.invoke('tfhka:test', comPort),
   printReporteX: (comPort) => ipcRenderer.invoke('tfhka:printReporteX', comPort),
+  printReporteZ: (comPort) => ipcRenderer.invoke('tfhka:printReporteZ', comPort),
 
   // Productos
   productosList: () => ipcRenderer.invoke('productos:list'),
@@ -45,6 +46,7 @@ const api = {
   ventasRegistrar: (payload) => ipcRenderer.invoke('ventas:registrar', payload),
   ventasList: (filtros) => ipcRenderer.invoke('ventas:list', filtros),
   ventasFindByNumero: (numero) => ipcRenderer.invoke('ventas:findByNumero', numero),
+  ventasTopProducto: () => ipcRenderer.invoke('ventas:topProducto'),
   ventasMarcarImpresaFiscalmente: (id, payload) =>
     ipcRenderer.invoke('ventas:marcarImpresaFiscalmente', id, payload),
 

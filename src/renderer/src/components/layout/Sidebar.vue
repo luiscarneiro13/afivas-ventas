@@ -16,8 +16,9 @@ const caja = useCajaStore()
 const cart = useCartStore()
 
 function logout() {
+  // La caja NO se cierra al cerrar sesión: solo se cierra desde
+  // Fiscalización, tras imprimir el Reporte Z.
   cart.clear()
-  caja.cerrar()
   auth.logout()
   router.push({ name: 'login' })
 }

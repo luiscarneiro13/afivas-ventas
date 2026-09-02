@@ -85,7 +85,7 @@ async function confirmDelete() {
               <div class="table-actions">
                 <button class="icon-btn" title="Editar" @click="openEdit(u)"><AppIcon name="edit" :size="15" /></button>
                 <button
-                  v-if="u.activo"
+                  v-if="u.activo && u.usuario !== 'admin'"
                   class="icon-btn danger"
                   title="Desactivar"
                   @click="askDelete(u)"

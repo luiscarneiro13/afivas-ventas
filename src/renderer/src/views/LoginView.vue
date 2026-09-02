@@ -2,21 +2,32 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@renderer/stores/auth'
+import { useCajaStore } from '@renderer/stores/caja'
 import logoUrl from '@renderer/assets/images/logo.png'
 
 const router = useRouter()
 const auth = useAuthStore()
+const caja = useCajaStore()
 
-const user = ref('admin')
-const pass = ref('admin')
+const user = ref('')
+const pass = ref('')
+const error = ref('')
+const loading = ref(false)
 
 async function onSubmit() {
+  error.value = ''
+  loading.value = true
   try {
-    await auth.login(user.value)
+    await auth.login(user.value, pass.value)
+    // El estado de Pinia no sobrevive un reinicio de la app: hay que
+    // consultar la BD para saber si ya quedó una sesión de caja abierta
+    // (la caja ya no se cierra al cerrar sesión).
+    await caja.fetchActual()
+    router.push(caja.abierta ? { name: 'venta' } : { name: 'caja' })
+  } catch (e) {
+    error.value = e?.message || 'No se pudo iniciar sesión'
   } finally {
-    // La navegación no debe depender de que el login termine sin errores:
-    // es un acceso demo, siempre debe dejar entrar.
-    router.push({ name: 'caja' })
+    loading.value = false
   }
 }
 </script>
@@ -36,9 +47,11 @@ async function onSubmit() {
           <label>Contraseña</label>
           <input v-model="pass" type="password" placeholder="••••••••" required />
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Iniciar sesión</button>
+        <p v-if="error" class="error-msg">{{ error }}</p>
+        <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
+          {{ loading ? 'Ingresando...' : 'Iniciar sesión' }}
+        </button>
       </form>
-      <div class="hint-box">Demo: cualquier usuario y contraseña funcionan. Ej. <b>admin</b> / <b>admin</b></div>
     </div>
   </section>
 </template>
@@ -141,16 +154,14 @@ async function onSubmit() {
 .btn-block {
   width: 100%;
 }
-.hint-box {
-  margin-top: 20px;
-  padding: 10px 12px;
-  background: var(--surface-alt);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: var(--text-muted);
-  border: 1px dashed var(--border);
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
-.hint-box b {
-  color: var(--text);
+.error-msg {
+  color: var(--danger);
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: -4px 0 14px;
 }
 </style>

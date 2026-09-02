@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 
 // Buscador con dropdown de resultados, reutilizado en Venta (producto/cliente)
@@ -18,11 +18,17 @@ const emit = defineEmits(['update:modelValue', 'select', 'focus'])
 
 const open = ref(false)
 const wrapRef = ref(null)
+const highlighted = ref(-1)
+const itemRefs = ref([])
 
 function keyOf(item, index) {
   if (typeof props.itemKey === 'function') return props.itemKey(item)
   if (typeof props.itemKey === 'string') return item[props.itemKey]
   return index
+}
+
+function scrollHighlightedIntoView() {
+  itemRefs.value[highlighted.value]?.scrollIntoView({ block: 'nearest' })
 }
 
 function onInput(e) {
@@ -43,19 +49,60 @@ function onDocClick(e) {
 onMounted(() => document.addEventListener('click', onDocClick))
 onUnmounted(() => document.removeEventListener('click', onDocClick))
 
-defineExpose({ close: () => (open.value = false) })
+watch(
+  () => props.items,
+  () => {
+    highlighted.value = -1
+  }
+)
+watch(open, (isOpen) => {
+  if (!isOpen) highlighted.value = -1
+})
+
+function onKeydown(e) {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!open.value) {
+      if (props.modelValue.trim() || props.showOnEmptyFocus) open.value = true
+      else return
+    }
+    if (!props.items.length) return
+    e.preventDefault()
+    if (e.key === 'ArrowDown') {
+      highlighted.value = highlighted.value >= props.items.length - 1 ? 0 : highlighted.value + 1
+    } else {
+      highlighted.value = highlighted.value <= 0 ? props.items.length - 1 : highlighted.value - 1
+    }
+    scrollHighlightedIntoView()
+  } else if (e.key === 'Enter') {
+    if (open.value && highlighted.value >= 0 && props.items[highlighted.value]) {
+      e.preventDefault()
+      select(props.items[highlighted.value])
+    }
+  } else if (e.key === 'Escape') {
+    if (open.value) {
+      e.preventDefault()
+      open.value = false
+    }
+  }
+}
+
+const inputRef = ref(null)
+
+defineExpose({ close: () => (open.value = false), focus: () => inputRef.value?.focus() })
 </script>
 
 <template>
   <div ref="wrapRef" class="searchbar">
     <span class="sicon"><AppIcon name="search" :size="14" /></span>
     <input
+      ref="inputRef"
       type="text"
       autocomplete="off"
       :value="modelValue"
       :placeholder="placeholder"
       @input="onInput"
       @focus="onFocus"
+      @keydown="onKeydown"
     />
     <span v-if="kbd" class="kbd">{{ kbd }}</span>
     <div v-if="open && (modelValue.trim() || showOnEmptyFocus)" class="dropdown">
@@ -63,8 +110,11 @@ defineExpose({ close: () => (open.value = false) })
         <div
           v-for="(item, i) in items"
           :key="keyOf(item, i)"
+          :ref="(el) => (itemRefs[i] = el)"
           class="dropdown-item"
+          :class="{ active: i === highlighted }"
           @click="select(item)"
+          @mouseenter="highlighted = i"
         >
           <slot name="item" :item="item" />
         </div>
@@ -116,7 +166,8 @@ defineExpose({ close: () => (open.value = false) })
 .dropdown-item:last-child {
   border-bottom: none;
 }
-.dropdown-item:hover {
+.dropdown-item:hover,
+.dropdown-item.active {
   background: var(--primary-light);
 }
 .dropdown-item :deep(b) {

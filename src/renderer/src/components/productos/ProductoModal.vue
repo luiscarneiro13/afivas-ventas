@@ -23,7 +23,8 @@ const form = reactive({
   desc: '',
   cat: catalog.categoryNames[0] || '',
   precio: '',
-  existencia: 0
+  existencia: 0,
+  stockMinimo: 3
 })
 
 function resetForm() {
@@ -33,12 +34,14 @@ function resetForm() {
     form.cat = props.producto.cat
     form.precio = props.producto.precio
     form.existencia = props.producto.existencia
+    form.stockMinimo = props.producto.stockMinimo ?? 3
   } else {
     form.codigo = ''
     form.desc = ''
     form.cat = catalog.categoryNames[0] || ''
     form.precio = ''
     form.existencia = 0
+    form.stockMinimo = 3
   }
 }
 
@@ -61,6 +64,7 @@ async function guardar() {
   const cat = form.cat
   const precio = parseFloat(form.precio)
   const existencia = parseInt(form.existencia, 10)
+  const stockMinimo = parseInt(form.stockMinimo, 10)
 
   if (
     !codigo ||
@@ -69,7 +73,9 @@ async function guardar() {
     isNaN(precio) ||
     precio < 0 ||
     isNaN(existencia) ||
-    existencia < 0
+    existencia < 0 ||
+    isNaN(stockMinimo) ||
+    stockMinimo < 0
   ) {
     ui.toast('Completa todos los campos correctamente', 'error')
     return
@@ -83,10 +89,10 @@ async function guardar() {
   saving.value = true
   try {
     if (!isEdit.value) {
-      await catalog.create({ codigo, desc, cat, precio, existencia })
+      await catalog.create({ codigo, desc, cat, precio, existencia, stockMinimo })
       ui.toast(`Producto "${desc}" creado`, 'success')
     } else {
-      await catalog.update(props.producto.codigo, { desc, cat, precio, existencia })
+      await catalog.update(props.producto.codigo, { desc, cat, precio, existencia, stockMinimo })
       ui.toast(`Producto "${desc}" actualizado`, 'success')
     }
     close()
@@ -116,9 +122,14 @@ async function guardar() {
         <input v-model="form.precio" type="number" min="0" step="0.01" />
       </BaseField>
     </div>
-    <BaseField label="Existencia">
-      <input v-model="form.existencia" type="number" min="0" step="1" />
-    </BaseField>
+    <div class="field-row">
+      <BaseField label="Existencia">
+        <input v-model="form.existencia" type="number" min="0" step="1" />
+      </BaseField>
+      <BaseField label="Alerta de cantidad mínima">
+        <input v-model="form.stockMinimo" type="number" min="0" step="1" />
+      </BaseField>
+    </div>
     <BaseButton variant="primary" block :disabled="saving" @click="guardar">
       {{ saving ? 'Guardando...' : 'Guardar producto' }}
     </BaseButton>

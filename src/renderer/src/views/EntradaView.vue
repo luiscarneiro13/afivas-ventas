@@ -32,7 +32,7 @@ onMounted(() => {
 // Si la categoría del producto fue desactivada/eliminada, catalog.categories
 // ya no la incluye — evita que eso rompa la vista.
 function catInfo(catName) {
-  return catalog.categories[catName] || { icon: 'box', color: '#9ca3af' }
+  return catalog.categories[catName] || { color: '#9ca3af' }
 }
 
 function selectProduct(item) {
@@ -102,9 +102,7 @@ async function registrar() {
           </SearchDropdown>
         </div>
         <div v-if="selectedProduct" class="selected-product-box">
-          <div class="ptile-sm" :style="{ background: catInfo(selectedProduct.cat).color }">
-            <AppIcon :name="catInfo(selectedProduct.cat).icon" :size="15" />
-          </div>
+          <div class="ptile-sm" :style="{ background: catInfo(selectedProduct.cat).color }"></div>
           <div class="info">
             <b>{{ selectedProduct.desc }}</b>
             <span>{{ selectedProduct.codigo }} · Existencia actual: {{ selectedProduct.existencia }}</span>

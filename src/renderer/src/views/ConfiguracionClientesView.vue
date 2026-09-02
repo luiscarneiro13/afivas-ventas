@@ -57,10 +57,20 @@ async function confirmDelete() {
 
     <div class="view-toolbar">
       <h2 class="vt-title">Clientes</h2>
-      <BaseButton variant="primary" size="sm" @click="openCreate">
-        <AppIcon name="plus" :size="14" />
-        Nuevo cliente
-      </BaseButton>
+      <div class="vt-actions">
+        <BaseButton variant="ghost" size="sm">
+          <AppIcon name="excel" :size="15" />
+          Exportar
+        </BaseButton>
+        <BaseButton variant="ghost" size="sm">
+          <AppIcon name="excel" :size="15" />
+          Importar
+        </BaseButton>
+        <BaseButton variant="primary" size="sm" @click="openCreate">
+          <AppIcon name="plus" :size="14" />
+          Nuevo cliente
+        </BaseButton>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -140,6 +150,12 @@ async function confirmDelete() {
 .vt-title {
   font-size: 16px;
   font-weight: 700;
+}
+.vt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .table-wrap {
   background: var(--surface);

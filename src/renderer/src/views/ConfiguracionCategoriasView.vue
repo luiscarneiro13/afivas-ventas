@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useCategoriasStore } from '@renderer/stores/categorias'
 import { useUiStore } from '@renderer/stores/ui'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
@@ -53,10 +53,20 @@ async function confirmDelete() {
 
     <div class="view-toolbar">
       <h2 class="vt-title">Categorías de productos</h2>
-      <BaseButton variant="primary" size="sm" @click="openCreate">
-        <AppIcon name="plus" :size="14" />
-        Nueva categoría
-      </BaseButton>
+      <div class="vt-actions">
+        <BaseButton variant="ghost" size="sm">
+          <AppIcon name="excel" :size="15" />
+          Exportar
+        </BaseButton>
+        <BaseButton variant="ghost" size="sm">
+          <AppIcon name="excel" :size="15" />
+          Importar
+        </BaseButton>
+        <BaseButton variant="primary" size="sm" @click="openCreate">
+          <AppIcon name="plus" :size="14" />
+          Nueva categoría
+        </BaseButton>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -72,9 +82,7 @@ async function confirmDelete() {
           <tr v-for="c in categorias.items" :key="c.id">
             <td>
               <div class="cat-cell">
-                <div class="ctile" :style="{ background: c.color }">
-                  <AppIcon :name="c.icono" :size="16" />
-                </div>
+                <div class="ctile" :style="{ background: c.color }"></div>
                 <b>{{ c.nombre }}</b>
               </div>
             </td>
@@ -141,6 +149,12 @@ async function confirmDelete() {
 .vt-title {
   font-size: 16px;
   font-weight: 700;
+}
+.vt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .table-wrap {
   background: var(--surface);

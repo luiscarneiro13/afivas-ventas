@@ -11,6 +11,8 @@ import * as m010 from './010_create_ventas.js'
 import * as m011 from './011_create_venta_items.js'
 import * as m012 from './012_create_cierres_fiscales_z.js'
 import * as m013 from './013_create_proveedores.js'
+import * as m014 from './014_add_stock_minimo_productos.js'
+import * as m015 from './015_drop_icono_categorias.js'
 
 // Lista ordenada y estática: Knex escanea directorios por defecto con
 // fs.readdirSync + require() dinámico, que Rollup no puede resolver dentro
@@ -29,7 +31,9 @@ const MIGRATIONS = [
   { name: '010_create_ventas.js', module: m010 },
   { name: '011_create_venta_items.js', module: m011 },
   { name: '012_create_cierres_fiscales_z.js', module: m012 },
-  { name: '013_create_proveedores.js', module: m013 }
+  { name: '013_create_proveedores.js', module: m013 },
+  { name: '014_add_stock_minimo_productos.js', module: m014 },
+  { name: '015_drop_icono_categorias.js', module: m015 }
 ]
 
 export const migrationSource = {

@@ -4,8 +4,11 @@ import AppIcon from './AppIcon.vue'
 defineProps({
   icon: { type: String, required: true },
   label: { type: String, required: true },
-  to: { type: [String, Object], default: null }
+  to: { type: [String, Object], default: null },
+  // Card interactiva sin navegación (ej. abre un modal). Ignorado si `to` está presente.
+  clickable: { type: Boolean, default: false }
 })
+defineEmits(['click'])
 </script>
 
 <template>
@@ -13,6 +16,10 @@ defineProps({
     <span class="nc-icon"><AppIcon :name="icon" :size="30" /></span>
     <span class="nc-label">{{ label }}</span>
   </router-link>
+  <button v-else-if="clickable" type="button" class="nav-card" @click="$emit('click')">
+    <span class="nc-icon"><AppIcon :name="icon" :size="30" /></span>
+    <span class="nc-label">{{ label }}</span>
+  </button>
   <div v-else class="nav-card is-static">
     <span class="nc-icon"><AppIcon :name="icon" :size="30" /></span>
     <span class="nc-label">{{ label }}</span>
