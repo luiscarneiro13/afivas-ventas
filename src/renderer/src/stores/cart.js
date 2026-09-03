@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { useCatalogStore } from './catalog'
 import { useCajaStore } from './caja'
+import { useConfigEmpresaStore } from './configEmpresa'
 import { useUiStore } from './ui'
 import { round2 } from '@renderer/utils/format'
 
@@ -13,24 +14,37 @@ export const useCartStore = defineStore('cart', {
     count: (state) => state.items.reduce((a, x) => a + x.cantidad, 0),
     subtotal: (state) => round2(state.items.reduce((a, x) => a + x.precio * x.cantidad, 0)),
     iva() {
-      return round2(this.subtotal * 0.16)
+      const configEmpresa = useConfigEmpresaStore()
+      return round2(this.subtotal * (configEmpresa.porcentajeIva / 100))
     },
     total() {
       return round2(this.subtotal + this.iva)
     },
     // Los productos se cargan y almacenan en dólares; los bolívares siempre
     // se calculan al vuelo con la tasa vigente, nunca se guardan como base.
-    subtotalBs() {
+    // itemsConBs agrega precioBs/subtotalLineaBs por ítem, cada uno YA
+    // redondeado a 2 decimales (el mismo número que se ve por fila en la
+    // grilla) — se usa tanto para armar subtotalBs (sumando esas líneas
+    // redondeadas, no la suma cruda sin redondear) como para guardar el
+    // snapshot exacto de la venta al registrarla (ver stores/sales.js).
+    // ivaBs/totalBs parten de ese subtotalBs, no de sus equivalentes en USD.
+    itemsConBs() {
       const caja = useCajaStore()
-      return this.subtotal * caja.tasa
+      return this.items.map((x) => ({
+        ...x,
+        precioBs: round2(x.precio * caja.tasa),
+        subtotalLineaBs: round2(x.precio * x.cantidad * caja.tasa)
+      }))
+    },
+    subtotalBs() {
+      return round2(this.itemsConBs.reduce((a, x) => a + x.subtotalLineaBs, 0))
     },
     ivaBs() {
-      const caja = useCajaStore()
-      return this.iva * caja.tasa
+      const configEmpresa = useConfigEmpresaStore()
+      return round2(this.subtotalBs * (configEmpresa.porcentajeIva / 100))
     },
     totalBs() {
-      const caja = useCajaStore()
-      return this.total * caja.tasa
+      return round2(this.subtotalBs + this.ivaBs)
     }
   },
   actions: {

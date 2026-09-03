@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useCajaStore } from '@renderer/stores/caja'
 import { useCartStore } from '@renderer/stores/cart'
 import { useUiStore } from '@renderer/stores/ui'
+import { useAuthStore } from '@renderer/stores/auth'
 import NavCard from '@renderer/components/ui/NavCard.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 
@@ -11,6 +12,7 @@ const router = useRouter()
 const caja = useCajaStore()
 const cart = useCartStore()
 const ui = useUiStore()
+const auth = useAuthStore()
 
 // Puerto configurado desde Configuración · Máquina fiscal (se guarda ahí
 // al probar la conexión con éxito). Si nunca se configuró, los comandos de
@@ -25,6 +27,12 @@ onMounted(async () => {
 const confirmZOpen = ref(false)
 const confirmXOpen = ref(false)
 
+// Genera el Reporte Z: lo envía a la impresora fiscal (resetea sus
+// acumulados, irreversible en el equipo real), cierra la sesión de caja
+// actual y deja registro del cierre en cierres_fiscales_z — el histórico de
+// Reportes Z, aparte del histórico de aperturas/cierres que ya vive en
+// sesiones_caja (esa tabla nunca borra filas: cada apertura inserta una
+// nueva y el cierre solo la actualiza).
 async function generarReporteZ() {
   const result = (await window.api?.printReporteZ?.(puertoCom.value)) || {
     ok: false,
@@ -36,12 +44,30 @@ async function generarReporteZ() {
   }
   ui.toast(result.message, 'success')
   cart.clear()
+
+  const sesionCajaId = caja.id
+  let sesionCerrada
   try {
-    await caja.cerrar()
+    sesionCerrada = await caja.cerrar()
   } catch (e) {
     ui.toast(e?.message || 'No se pudo cerrar la caja', 'error')
     return
   }
+
+  try {
+    await window.api?.fiscalReporteZRegistrar?.({
+      sesionCajaId,
+      usuarioId: auth.usuarioId,
+      totalVentas: sesionCerrada?.total_ventas ?? null,
+      respuestaCruda: result.message
+    })
+  } catch (e) {
+    // La caja ya cerró y el equipo ya imprimió el Z (irreversible); si el
+    // registro del histórico falla, se avisa aparte en vez de bloquear el
+    // flujo — no hay nada que "deshacer" en este punto.
+    ui.toast(e?.message || 'El Reporte Z se generó, pero no se pudo guardar en el histórico.', 'error')
+  }
+
   router.push({ name: 'caja' })
 }
 

@@ -8,6 +8,7 @@ import { useSalesStore } from '@renderer/stores/sales'
 import { useClientesStore } from '@renderer/stores/clientes'
 import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 import { useBancosStore } from '@renderer/stores/bancos'
+import { useConfigEmpresaStore } from '@renderer/stores/configEmpresa'
 
 const catalog = useCatalogStore()
 const categorias = useCategoriasStore()
@@ -15,6 +16,7 @@ const sales = useSalesStore()
 const clientes = useClientesStore()
 const metodosPago = useMetodosPagoStore()
 const bancos = useBancosStore()
+const configEmpresa = useConfigEmpresaStore()
 
 // Carga una sola vez, al entrar a la app, para que Venta/Reportes tengan
 // datos reales sin que cada vista repita el fetch. metodosPago debe estar
@@ -25,7 +27,8 @@ onMounted(async () => {
     catalog.fetchAll(),
     clientes.fetchAll(),
     metodosPago.fetchAll(),
-    bancos.fetchAll()
+    bancos.fetchAll(),
+    configEmpresa.fetchAll()
   ])
   await sales.fetchAll()
 })

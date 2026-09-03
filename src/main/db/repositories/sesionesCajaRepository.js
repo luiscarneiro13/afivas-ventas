@@ -20,6 +20,18 @@ export function makeSesionesCajaRepository(knex) {
       return knex('sesiones_caja').where({ id }).first()
     },
 
+    // Permite corregir la tasa de cambio de la sesión abierta en curso (se
+    // edita desde el pill de tasa en el header). Se persiste en
+    // tasa_apertura porque esa es la única columna que fetchActual() lee de
+    // vuelta al reabrir la app — si no se persiste acá, un logout/login
+    // revierte la tasa a la que tenía la sesión al abrirse.
+    async actualizarTasa(id, tasa) {
+      await knex('sesiones_caja')
+        .where({ id, estado: 'abierta' })
+        .update({ tasa_apertura: tasa, updated_at: knex.fn.now() })
+      return knex('sesiones_caja').where({ id }).first()
+    },
+
     async cerrar(id, { tasaCierre, montoContadoCierre, notasCierre }) {
       const sesion = await knex('sesiones_caja').where({ id }).first()
       if (!sesion) throw new Error('Sesión de caja no encontrada.')
@@ -43,7 +55,21 @@ export function makeSesionesCajaRepository(knex) {
           cerrada_at: knex.fn.now(),
           updated_at: knex.fn.now()
         })
-      return knex('sesiones_caja').where({ id }).first()
+      const sesionCerrada = await knex('sesiones_caja').where({ id }).first()
+      // total_ventas no es columna de la tabla (solo se usó para calcular la
+      // diferencia), pero el llamador lo necesita para el histórico de
+      // cierres fiscales Z, así que se agrega al objeto devuelto.
+      return { ...sesionCerrada, total_ventas: totalVentas }
+    },
+
+    // Histórico de aperturas/cierres de caja (nunca se borran filas: abrir()
+    // siempre inserta una nueva y cerrar() solo actualiza la existente).
+    historial({ limit = 50 } = {}) {
+      return knex('sesiones_caja')
+        .leftJoin('usuarios', 'usuarios.id', 'sesiones_caja.usuario_id')
+        .select('sesiones_caja.*', 'usuarios.nombre_completo as usuario_nombre')
+        .orderBy('sesiones_caja.abierta_at', 'desc')
+        .limit(limit)
     }
   }
 }

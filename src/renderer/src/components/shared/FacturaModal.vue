@@ -47,8 +47,11 @@ const horaFmt = computed(() => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 })
 
-// Los montos en el ticket fiscal siempre están en bolívares, a la tasa
-// vigente al momento de esa venta (sale.tasaCambio), no a la tasa actual.
+// Los montos del ticket ya vienen resueltos en bolívares como snapshot de
+// esa venta (sale.subtotalBs/ivaBs/totalBs, item.precioBs/subtotalLineaBs —
+// ver stores/sales.js), no se recalculan con la tasa actual. Solo
+// recibido/vuelto no tienen snapshot propio en Bs, así que esos sí se
+// convierten acá con la tasa histórica de la venta (sale.tasaCambio).
 const bs = (usd) => fmtBs((usd || 0) * (props.sale?.tasaCambio || 0))
 
 const porcentajeIvaFmt = computed(() =>
@@ -91,22 +94,22 @@ const vueltoFmt = computed(() => ((props.sale?.vuelto || 0) * (props.sale?.tasaC
           <div class="receipt-items">
             <template v-for="i in sale.items" :key="i.codigo">
               <div v-if="i.cantidad > 1" class="ritem-qty">
-                <span>{{ i.cantidad }}x</span><span>{{ bs(i.precio) }}</span>
+                <span>{{ i.cantidad }}x</span><span>{{ fmtBs(i.precioBs) }}</span>
               </div>
               <div class="ritem-desc">
-                <span>{{ i.desc }} (G)</span><span>{{ bs(i.precio * i.cantidad) }}</span>
+                <span>{{ i.desc }} (G)</span><span>{{ fmtBs(i.subtotalLineaBs) }}</span>
               </div>
             </template>
           </div>
           <div class="dashed"></div>
           <div class="receipt-totals">
-            <div><span>BI G ({{ porcentajeIvaFmt }}%)</span><span>{{ bs(sale.subtotal) }}</span></div>
-            <div><span>IVA G ({{ porcentajeIvaFmt }}%)</span><span>{{ bs(sale.iva) }}</span></div>
+            <div><span>BI G ({{ porcentajeIvaFmt }}%)</span><span>{{ fmtBs(sale.subtotalBs) }}</span></div>
+            <div><span>IVA G ({{ porcentajeIvaFmt }}%)</span><span>{{ fmtBs(sale.ivaBs) }}</span></div>
           </div>
           <div class="dashed"></div>
           <div class="receipt-totals">
-            <div class="grand"><span>TOTAL</span><span>{{ bs(sale.total) }}</span></div>
-            <div><span>{{ sale.method.label.toUpperCase() }}</span><span>{{ bs(sale.total) }}</span></div>
+            <div class="grand"><span>TOTAL</span><span>{{ fmtBs(sale.totalBs) }}</span></div>
+            <div><span>{{ sale.method.label.toUpperCase() }}</span><span>{{ fmtBs(sale.totalBs) }}</span></div>
             <div class="vuelto">VUELTO:{{ vueltoFmt }}</div>
           </div>
           <div class="dashed"></div>

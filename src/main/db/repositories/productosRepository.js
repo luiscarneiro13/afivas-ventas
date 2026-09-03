@@ -34,13 +34,14 @@ export function makeProductosRepository(knex) {
       return withCategoria(knex('productos')).where('productos.id', id).first()
     },
 
-    async update(codigo, { descripcion, categoriaId, precio, stockMinimo }) {
+    async update(codigo, { descripcion, categoriaId, precio, existencia, stockMinimo }) {
       await knex('productos')
         .where({ codigo })
         .update({
           descripcion,
           categoria_id: categoriaId,
           precio,
+          existencia: existencia ?? 0,
           stock_minimo: stockMinimo ?? 3,
           updated_at: knex.fn.now()
         })

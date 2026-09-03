@@ -9,6 +9,7 @@ import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 import { useCajaStore } from '@renderer/stores/caja'
 import { useAuthStore } from '@renderer/stores/auth'
 import { useUiStore } from '@renderer/stores/ui'
+import { useConfigEmpresaStore } from '@renderer/stores/configEmpresa'
 import { fmtBs } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
@@ -19,6 +20,7 @@ import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import ClienteModal from '@renderer/components/productos/ClienteModal.vue'
 import PagoModal from '@renderer/components/venta/PagoModal.vue'
 import CantidadExcedeModal from '@renderer/components/venta/CantidadExcedeModal.vue'
+import FiscalPrintErrorModal from '@renderer/components/venta/FiscalPrintErrorModal.vue'
 
 const route = useRoute()
 const catalog = useCatalogStore()
@@ -29,11 +31,15 @@ const metodosPago = useMetodosPagoStore()
 const caja = useCajaStore()
 const auth = useAuthStore()
 const ui = useUiStore()
+const configEmpresa = useConfigEmpresaStore()
 
-// Igual que fmtBs pero sin el prefijo "Bs", para las columnas de la grilla
-// del carrito donde el encabezado ya deja claro que la cifra es en bolívares.
-const fmtNumBs = (n) =>
+// Igual que fmtBs/fmtUsd pero sin el prefijo de moneda, para las columnas de
+// la grilla del carrito donde el encabezado ya deja claro la moneda de cada
+// una ("P.Uni. ($)", "P.Uni. (Bs)", etc.).
+const fmtNum = (n) =>
   Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const ivaPorcentajeFmt = computed(() => Number(configEmpresa.porcentajeIva).toFixed(2).replace('.', ','))
 
 const clientQuery = ref('')
 const productQuery = ref('')
@@ -168,11 +174,16 @@ function abrirPago() {
 }
 
 // Envía la factura recién registrada a la impresora fiscal (Aclas PP9-Plus,
-// protocolo TFHKA). No hay modal de previsualización: el comprobante lo
-// produce la impresora física, no la pantalla. Si falla (equipo apagado,
-// sin papel, desconectado) no se reintenta sola — la venta ya quedó
-// registrada en la BD local, así que se deja un aviso persistente con la
-// opción de reintentar en vez de un toast que desaparece solo.
+// protocolo TFHKA). Se llama después de registrar la venta, así que un fallo
+// aquí (equipo apagado, sin papel, desconectado) no afecta el registro: la
+// venta ya quedó guardada en la BD local. Se avisa con un modal (con opción
+// de reintentar) en vez de un toast que desaparece solo.
+//
+// No calcula nada: sale.numeroFacturaFiscal (el REF) y sale.items[].precioBs
+// ya vienen fijados desde el registro de la venta (ver onFinalizar/
+// stores/sales.js) — acá solo se lee config para el puerto COM y se manda
+// la factura tal cual quedó guardada. Si falla, el reintento reenvía la
+// misma venta con el mismo REF, sin volver a calcular nada.
 async function imprimirFiscal(sale) {
   fiscalPrintError.value = null
   try {
@@ -182,15 +193,15 @@ async function imprimirFiscal(sale) {
       fiscalPrintError.value = { sale, message: 'No hay un puerto COM configurado para la impresora fiscal.' }
       return
     }
-    const result = await window.api.printFacturaFiscal(comPort, sale)
+    const result = await window.api.printFacturaFiscal(comPort, {
+      ...sale,
+      correlativoFiscal: sale.numeroFacturaFiscal
+    })
     if (!result?.ok) {
       fiscalPrintError.value = { sale, message: result?.message || 'No se pudo imprimir la factura fiscal.' }
       return
     }
-    // El número de control que asigna la impresora aún no se captura del
-    // protocolo (a confirmar contra el equipo real); se marca la venta como
-    // impresa fiscalmente sin ese dato por ahora.
-    await window.api.ventasMarcarImpresaFiscalmente(sale.id, { numeroFacturaFiscal: null })
+    await window.api.ventasMarcarImpresaFiscalmente(sale.id)
     await sales.fetchAll()
   } catch (e) {
     fiscalPrintError.value = { sale, message: e?.message || 'No se pudo imprimir la factura fiscal.' }
@@ -208,8 +219,16 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) 
     return
   }
   try {
+    // El correlativo/REF fiscal se reserva y se guarda en la venta desde ya
+    // (Configuración > Máquina fiscal lleva el contador porque el protocolo
+    // TFHKA no devuelve el número que la impresora asigna). Así, al imprimir
+    // no hay que calcular nada: se manda el REF que ya quedó fijo en la BD,
+    // y un reintento tras un fallo de impresión reenvía ese mismo número.
+    const configFiscal = await window.api.configImpresoraGet()
+    const siguienteCorrelativo = (configFiscal?.correlativo_factura_fiscal || 0) + 1
+
     const sale = await sales.registrarVenta({
-      items: cart.items,
+      items: cart.itemsConBs,
       clienteId: cliente.id,
       sesionCajaId: caja.id,
       usuarioId: auth.usuarioId,
@@ -220,9 +239,14 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) 
       bancoId: bancoId || null,
       tasaCambio: caja.tasa,
       subtotal: cart.subtotal,
+      subtotalBs: cart.subtotalBs,
       iva: cart.iva,
-      total: cart.total
+      ivaBs: cart.ivaBs,
+      total: cart.total,
+      totalBs: cart.totalBs,
+      numeroFacturaFiscal: siguienteCorrelativo
     })
+    await window.api.configImpresoraUpdate({ correlativoFacturaFiscal: siguienteCorrelativo })
     pagoOpen.value = false
     ui.toast('Venta finalizada con éxito', 'success')
     await imprimirFiscal(sale)
@@ -261,12 +285,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 <template>
   <div class="view-content">
-    <div v-if="fiscalPrintError" class="fiscal-error-banner">
-      <AppIcon name="alert" :size="16" />
-      <span>{{ fiscalPrintError.message }}</span>
-      <BaseButton variant="ghost" size="sm" @click="reintentarImpresionFiscal">Reintentar</BaseButton>
-      <BaseButton variant="ghost" size="sm" @click="fiscalPrintError = null">Descartar</BaseButton>
-    </div>
     <div class="vb-shell">
       <div class="vb-window">
         <div class="vb-row">
@@ -339,15 +357,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <th style="width: 38px">#</th>
                 <th style="width: 78px">Código</th>
                 <th>Producto</th>
-                <th style="width: 135px">P.Uni. (Bs)</th>
-                <th style="width: 80px">Cantidad</th>
-                <th style="width: 135px">Subtotal (Bs)</th>
+                <th style="width: 90px">P.Uni. ($)</th>
+                <th style="width: 90px">Subtotal ($)</th>
+                <th style="width: 90px">Cantidad</th>
+                <th style="width: 90px">P.Uni. (Bs)</th>
+                <th style="width: 90px">Subtotal (Bs)</th>
                 <th style="width: 36px"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="cart.items.length === 0">
-                <td colspan="7">
+                <td colspan="9">
                   <EmptyState
                     icon="cart"
                     title="Sin productos"
@@ -359,7 +379,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <td class="num">{{ i + 1 }}</td>
                 <td class="num">{{ item.codigo }}</td>
                 <td>{{ item.desc }}</td>
-                <td class="num">{{ fmtNumBs(item.precio * caja.tasa) }}</td>
+                <td class="num">{{ fmtNum(item.precio) }}</td>
+                <td class="num">{{ fmtNum(item.precio * item.cantidad) }}</td>
                 <td>
                   <input
                     type="text"
@@ -371,7 +392,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                     @click="selectQtyContent"
                   />
                 </td>
-                <td class="num">{{ fmtNumBs(item.precio * item.cantidad * caja.tasa) }}</td>
+                <td class="num">{{ fmtNum(item.precio * caja.tasa) }}</td>
+                <td class="num">{{ fmtNum(item.precio * item.cantidad * caja.tasa) }}</td>
                 <td>
                   <button class="vb-row-del" title="Quitar" @click="cart.removeProduct(item.codigo)">
                     <AppIcon name="x" :size="13" />
@@ -387,7 +409,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
         <div class="vb-right-title">Resumen de venta</div>
         <div class="vb-totals">
           <div><span>Subtotal</span><b class="num">{{ fmtBs(cart.subtotalBs) }}</b></div>
-          <div><span>IVA (16%)</span><b class="num">{{ fmtBs(cart.ivaBs) }}</b></div>
+          <div><span>IVA ({{ ivaPorcentajeFmt }}%)</span><b class="num">{{ fmtBs(cart.ivaBs) }}</b></div>
           <div class="tot"><span>Total</span><b class="num">{{ fmtBs(cart.totalBs) }}</b></div>
         </div>
         <button class="checkout-btn" :disabled="cart.items.length === 0" @click="abrirPago">
@@ -421,6 +443,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       @confirm="vaciarProductos"
     />
     <ClienteModal v-model="clienteModalOpen" :prefill="clientePrefill" @created="onClienteCreado" />
+    <FiscalPrintErrorModal
+      :model-value="!!fiscalPrintError"
+      :message="fiscalPrintError?.message"
+      @update:model-value="(v) => { if (!v) fiscalPrintError = null }"
+      @retry="reintentarImpresionFiscal"
+    />
   </div>
 </template>
 
@@ -431,22 +459,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   overflow-y: auto;
   padding: 22px 26px;
   display: flex;
-}
-.fiscal-error-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  margin-bottom: 14px;
-  background: var(--danger-light);
-  color: var(--danger);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.fiscal-error-banner span {
-  flex: 1;
 }
 .vb-shell {
   display: grid;
@@ -512,6 +524,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 }
 table.vb-datagrid {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 12.5px;
 }
@@ -532,7 +545,9 @@ table.vb-datagrid {
   border-right: none;
 }
 .vb-datagrid tbody td {
-  padding: 8px 12px;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 400;
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
   vertical-align: middle;
@@ -542,9 +557,17 @@ table.vb-datagrid {
   padding-right: 8px;
   white-space: nowrap;
 }
-.vb-datagrid tbody td:nth-child(5) {
-  padding-left: 6px;
-  padding-right: 6px;
+.vb-datagrid tbody td:nth-child(3) {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.vb-datagrid tbody td:nth-child(4),
+.vb-datagrid tbody td:nth-child(5),
+.vb-datagrid tbody td:nth-child(6),
+.vb-datagrid tbody td:nth-child(7),
+.vb-datagrid tbody td:nth-child(8),
+.vb-datagrid tbody td:nth-child(9) {
+  padding: 0;
   text-align: center;
 }
 .vb-datagrid tbody td:last-child {
@@ -577,7 +600,7 @@ table.vb-datagrid {
   width: 26px;
   height: 26px;
   border-radius: 7px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);

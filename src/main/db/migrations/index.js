@@ -19,6 +19,7 @@ import * as m018 from './018_create_bancos.js'
 import * as m019 from './019_add_banco_to_ventas.js'
 import * as m020 from './020_make_categoria_opcional_productos.js'
 import * as m021 from './021_update_config_empresa_datos_reales.js'
+import * as m022 from './022_add_snapshots_bs_ventas.js'
 
 // Lista ordenada y estática: Knex escanea directorios por defecto con
 // fs.readdirSync + require() dinámico, que Rollup no puede resolver dentro
@@ -45,7 +46,8 @@ const MIGRATIONS = [
   { name: '018_create_bancos.js', module: m018 },
   { name: '019_add_banco_to_ventas.js', module: m019 },
   { name: '020_make_categoria_opcional_productos.js', module: m020 },
-  { name: '021_update_config_empresa_datos_reales.js', module: m021 }
+  { name: '021_update_config_empresa_datos_reales.js', module: m021 },
+  { name: '022_add_snapshots_bs_ventas.js', module: m022 }
 ]
 
 export const migrationSource = {

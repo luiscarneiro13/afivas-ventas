@@ -133,7 +133,7 @@ onMounted(async () => {
         </thead>
         <tbody v-if="lastSales.length">
           <tr v-for="sale in lastSales" :key="sale.numero" @click="openSale(sale)">
-            <td class="num">#{{ String(sale.numero).padStart(6, '0') }}</td>
+            <td class="num">#{{ String(sale.numero).padStart(8, '0') }}</td>
             <td class="num">{{ fmtDateTime(sale.fecha) }}</td>
             <td>{{ sale.cliente.nombre }}</td>
             <td>{{ sale.itemsCount }}</td>

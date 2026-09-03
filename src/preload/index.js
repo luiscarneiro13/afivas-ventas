@@ -50,8 +50,7 @@ const api = {
   ventasFindByNumero: (numero) => ipcRenderer.invoke('ventas:findByNumero', numero),
   ventasTopProducto: () => ipcRenderer.invoke('ventas:topProducto'),
   ventasAnular: (id) => ipcRenderer.invoke('ventas:anular', id),
-  ventasMarcarImpresaFiscalmente: (id, payload) =>
-    ipcRenderer.invoke('ventas:marcarImpresaFiscalmente', id, payload),
+  ventasMarcarImpresaFiscalmente: (id) => ipcRenderer.invoke('ventas:marcarImpresaFiscalmente', id),
 
   // Entradas de stock
   stockRegistrarEntrada: (payload) => ipcRenderer.invoke('stock:registrarEntrada', payload),
@@ -61,6 +60,8 @@ const api = {
   cajaActual: () => ipcRenderer.invoke('caja:actual'),
   cajaAbrir: (payload) => ipcRenderer.invoke('caja:abrir', payload),
   cajaCerrar: (id, payload) => ipcRenderer.invoke('caja:cerrar', id, payload),
+  cajaActualizarTasa: (id, tasa) => ipcRenderer.invoke('caja:actualizarTasa', id, tasa),
+  cajaHistorial: (filtros) => ipcRenderer.invoke('caja:historial', filtros),
 
   // Usuarios / autenticación
   usuariosLogin: (usuario, password) => ipcRenderer.invoke('usuarios:login', usuario, password),
@@ -77,7 +78,8 @@ const api = {
 
   // Integración fiscal
   fiscalReporteZRegistrar: (payload) => ipcRenderer.invoke('fiscal:reporteZ:registrar', payload),
-  fiscalReporteZUltimo: () => ipcRenderer.invoke('fiscal:reporteZ:ultimo')
+  fiscalReporteZUltimo: () => ipcRenderer.invoke('fiscal:reporteZ:ultimo'),
+  fiscalReporteZHistorial: (filtros) => ipcRenderer.invoke('fiscal:reporteZ:historial', filtros)
 }
 
 if (process.contextIsolated) {

@@ -18,7 +18,8 @@ function withRelaciones(query) {
       'metodos_pago.codigo_fiscal as metodo_pago_codigo_fiscal',
       'bancos.nombre as banco_nombre',
       'clientes.direccion as cliente_direccion',
-      'clientes.telefono as cliente_telefono'
+      'clientes.telefono as cliente_telefono',
+      'clientes.movil as cliente_movil'
     )
     .join('usuarios', 'usuarios.id', 'ventas.usuario_id')
     .join('metodos_pago', 'metodos_pago.id', 'ventas.metodo_pago_id')
@@ -37,14 +38,18 @@ export function makeVentasRepository(knex) {
       metodoPagoId,
       items,
       subtotal,
+      subtotalBs,
       porcentajeIva,
       iva,
+      ivaBs,
       total,
+      totalBs,
       recibido,
       vuelto,
       referenciaPago,
       bancoId,
-      tasaCambio
+      tasaCambio,
+      numeroFacturaFiscal
     }) {
       return knex.transaction(async (trx) => {
         const sesion = await trx('sesiones_caja').where({ id: sesionCajaId, estado: 'abierta' }).first()
@@ -69,14 +74,18 @@ export function makeVentasRepository(knex) {
           usuario_id: usuarioId,
           metodo_pago_id: metodoPagoId,
           subtotal,
+          subtotal_bs: subtotalBs,
           porcentaje_iva: porcentajeIva,
           iva,
+          iva_bs: ivaBs,
           total,
+          total_bs: totalBs,
           recibido,
           vuelto,
           referencia_pago: referenciaPago ?? null,
           banco_id: bancoId ?? null,
-          tasa_cambio: tasaCambio
+          tasa_cambio: tasaCambio,
+          numero_factura_fiscal: numeroFacturaFiscal ?? null
         })
 
         for (const item of items) {
@@ -94,8 +103,10 @@ export function makeVentasRepository(knex) {
             codigo_snapshot: producto.codigo,
             descripcion_snapshot: producto.descripcion,
             precio_unitario_snapshot: item.precioUnitario,
+            precio_unitario_bs: item.precioUnitarioBs,
             cantidad: item.cantidad,
-            subtotal_linea: item.precioUnitario * item.cantidad
+            subtotal_linea: item.precioUnitario * item.cantidad,
+            subtotal_linea_bs: item.subtotalLineaBs
           })
           await productos.adjustStock(trx, item.productoId, -item.cantidad)
         }
@@ -169,9 +180,11 @@ export function makeVentasRepository(knex) {
       })
     },
 
-    marcarImpresaFiscalmente(id, { numeroFacturaFiscal }) {
+    // El número de REF ya queda fijado en `registrar()` (numero_factura_fiscal
+    // se asigna al crear la venta, no al imprimir). Esto solo marca que la
+    // impresión fiscal ya se realizó con éxito.
+    marcarImpresaFiscalmente(id) {
       return knex('ventas').where({ id }).update({
-        numero_factura_fiscal: numeroFacturaFiscal,
         impresa_fiscalmente: 1,
         fecha_impresion_fiscal: knex.fn.now()
       })

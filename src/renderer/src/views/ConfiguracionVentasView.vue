@@ -114,7 +114,7 @@ async function confirmAnular() {
         </thead>
         <tbody v-if="filteredSales.length">
           <tr v-for="venta in filteredSales" :key="venta.numero">
-            <td class="num">#{{ String(venta.numero).padStart(6, '0') }}</td>
+            <td class="num">#{{ String(venta.numero).padStart(8, '0') }}</td>
             <td class="num">{{ fmtDateTime(venta.fecha) }}</td>
             <td>{{ venta.cliente.nombre }}</td>
             <td class="num" style="font-weight: 700">{{ fmtUsd(venta.total) }}</td>
@@ -162,7 +162,7 @@ async function confirmAnular() {
     <FacturaModal v-model="facturaOpen" :sale="selectedSale" />
     <ConfirmModal
       v-model="confirmOpen"
-      :title="ventaAAnular ? `¿Anular la factura #${String(ventaAAnular.numero).padStart(6, '0')}?` : '¿Anular venta?'"
+      :title="ventaAAnular ? `¿Anular la factura #${String(ventaAAnular.numero).padStart(8, '0')}?` : '¿Anular venta?'"
       text="Se restaurará la existencia de los productos de esta venta. La factura queda marcada como anulada, no se elimina."
       icon="x"
       confirm-label="Anular"

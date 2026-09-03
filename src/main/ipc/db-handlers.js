@@ -44,9 +44,7 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('ventas:findByNumero', (_e, numero) => repos.ventas.findByNumero(numero))
   ipcMain.handle('ventas:topProducto', () => repos.ventas.topProducto())
   ipcMain.handle('ventas:anular', (_e, id) => repos.ventas.anular(id))
-  ipcMain.handle('ventas:marcarImpresaFiscalmente', (_e, id, payload) =>
-    repos.ventas.marcarImpresaFiscalmente(id, payload)
-  )
+  ipcMain.handle('ventas:marcarImpresaFiscalmente', (_e, id) => repos.ventas.marcarImpresaFiscalmente(id))
 
   // Entradas de stock
   ipcMain.handle('stock:registrarEntrada', (_e, payload) => repos.entradasStock.registrar(payload))
@@ -56,6 +54,8 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('caja:actual', () => repos.sesionesCaja.actual())
   ipcMain.handle('caja:abrir', (_e, payload) => repos.sesionesCaja.abrir(payload))
   ipcMain.handle('caja:cerrar', (_e, id, payload) => repos.sesionesCaja.cerrar(id, payload))
+  ipcMain.handle('caja:actualizarTasa', (_e, id, tasa) => repos.sesionesCaja.actualizarTasa(id, tasa))
+  ipcMain.handle('caja:historial', (_e, filtros) => repos.sesionesCaja.historial(filtros))
 
   // Usuarios / autenticación
   ipcMain.handle('usuarios:login', (_e, usuario, password) => repos.usuarios.login(usuario, password))
@@ -70,8 +70,10 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('config:impresora:get', () => repos.configImpresora.get())
   ipcMain.handle('config:impresora:update', (_e, payload) => repos.configImpresora.update(payload))
 
-  // Integración fiscal (registro de cierres Z; el protocolo TFHKA en sí
-  // vive en src/main/index.js y aún no llama a estos canales)
+  // Integración fiscal: histórico de cierres Z. FiscalizacionView.vue llama
+  // a 'registrar' justo después de que el comando TFHKA (src/main/index.js)
+  // se envía con éxito y la caja ya cerró.
   ipcMain.handle('fiscal:reporteZ:registrar', (_e, payload) => repos.cierresFiscales.registrar(payload))
   ipcMain.handle('fiscal:reporteZ:ultimo', () => repos.cierresFiscales.ultimo())
+  ipcMain.handle('fiscal:reporteZ:historial', (_e, filtros) => repos.cierresFiscales.historial(filtros))
 }

@@ -1,5 +1,20 @@
 export const round2 = (n) => Math.round(n * 100) / 100
 
+// Máscara de centavos para inputs de montos/porcentajes con coma decimal
+// (tasa de cambio, % de IVA): el estado real es la cadena de dígitos
+// tipeados (sin signos ni separadores); los últimos 2 dígitos son siempre
+// la parte decimal, como un monto de POS. digitsFromDecimal convierte un
+// número guardado (ej. 189.35) al estado inicial ("18935"); maskDisplay
+// arma el texto a mostrar ("189,35") a partir de esos dígitos.
+export const digitsFromDecimal = (n) => String(Math.round(Number(n || 0) * 100))
+
+export const maskDisplay = (digits) => {
+  const padded = digits.padStart(3, '0')
+  const intPart = padded.slice(0, -2).replace(/^0+(?=\d)/, '')
+  const decPart = padded.slice(-2)
+  return `${intPart},${decPart}`
+}
+
 export const fmtUsd = (n) =>
   '$' + Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 

@@ -65,7 +65,7 @@ export const useCatalogStore = defineStore('catalog', {
       })
       await this.fetchAll()
     },
-    async update(codigo, { desc, cat, precio, stockMinimo }) {
+    async update(codigo, { desc, cat, precio, existencia, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
@@ -73,6 +73,7 @@ export const useCatalogStore = defineStore('catalog', {
         descripcion: desc,
         categoriaId: categoria.id,
         precio,
+        existencia,
         stockMinimo
       })
       await this.fetchAll()

@@ -127,10 +127,25 @@ function formatCantidadTfhka(cantidad) {
   return String(Math.round(Number(cantidad) * 1000)).padStart(8, '0')
 }
 
+// Formatea el monto entregado como exige el comando `2` (totalización con
+// pago parcial) de TFHKA: 10 dígitos enteros + 2 decimales, sin separador,
+// con ceros a la izquierda (12 caracteres) — mismo esquema que `!` pero con
+// dos dígitos enteros más, según la tabla de comandos del protocolo.
+function formatMontoTfhka(monto) {
+  return String(Math.round(Number(monto) * 100)).padStart(12, '0')
+}
+
 // Imprime la factura fiscal completa: identifica al cliente, registra cada
 // ítem y totaliza con el medio de pago, siguiendo el protocolo documentado
 // en Docs/04-INTEGRACION_TFHKA.md. Si cualquier comando falla se aborta de
 // inmediato — un envío a medias sobre memoria fiscal no debe continuarse.
+//
+// Esta función no calcula nada de negocio: recibe la venta ya resuelta
+// desde VentaView.vue (item.precioBs en bolívares, correlativoFiscal, etc.)
+// y solo formatea/envía los comandos TFHKA. La impresora sí calcula BI/IVA/
+// Total ella misma a partir del precio de cada ítem registrado, según la
+// tasa fiscal programada en el equipo — eso es inherente al protocolo y no
+// algo que este proceso decida.
 function printFacturaFiscal(comPort, venta) {
   return withTfhka(comPort, (lib) => {
     const SendCmd = lib.func('bool __stdcall SendCmd(_Out_ int *status, _Out_ int *error, const char *cmd)')
@@ -161,9 +176,43 @@ function printFacturaFiscal(comPort, venta) {
         }
       }
     }
-
+    // Líneas de información adicional del cliente (Dir/Telefonos/REF):
+    // deben enviarse antes de registrar productos o comentarios para que
+    // queden en el encabezado, justo debajo del RIF y la razón social.
+    // Se envían siempre, aunque el dato esté vacío, para que la etiqueta
+    // ("Dir:"/"Telefonos:") quede impresa igual — así se distingue "no
+    // tiene" de "no se envió".
+    let lineaAdicional = 0
+    {
+      const r = send(`i0${lineaAdicional++}Dir: ${venta.cliente?.direccion || ''}`)
+      if (!r.okCmd) {
+        return {
+          ok: false,
+          message: `No se pudo enviar la dirección del cliente (estado: ${r.status}, error: ${r.error}).`
+        }
+      }
+    }
+    {
+      const r = send(`i0${lineaAdicional++}Telefonos: ${venta.cliente?.telefono || ''}`)
+      if (!r.okCmd) {
+        return {
+          ok: false,
+          message: `No se pudo enviar el teléfono del cliente (estado: ${r.status}, error: ${r.error}).`
+        }
+      }
+    }
+    if (venta.correlativoFiscal) {
+      const ref = String(venta.correlativoFiscal).padStart(8, '0')
+      const r = send(`i0${lineaAdicional++}REF:${ref}`)
+      if (!r.okCmd) {
+        return {
+          ok: false,
+          message: `No se pudo enviar la referencia de factura (estado: ${r.status}, error: ${r.error}).`
+        }
+      }
+    }
     for (const item of venta.items || []) {
-      const cmd = `!${formatPrecioTfhka(item.precio)}${formatCantidadTfhka(item.cantidad)}|${item.codigo}|${item.desc}`
+      const cmd = `!${formatPrecioTfhka(item.precioBs)}${formatCantidadTfhka(item.cantidad)}${item.desc}`
       const r = send(cmd)
       if (!r.okCmd) {
         return {
@@ -177,7 +226,16 @@ function printFacturaFiscal(comPort, venta) {
     if (!codigoFiscal) {
       return { ok: false, message: 'El método de pago de la venta no tiene código fiscal configurado.' }
     }
-    const totalizacion = send(`1${codigoFiscal}`)
+    // Efectivo se totaliza con el monto entregado (comando "2", pago
+    // parcial): así es la propia impresora la que calcula e imprime el
+    // vuelto, en su posición normal después del total — no una línea de
+    // texto aparte. El resto de métodos no maneja vuelto (PagoModal.vue lo
+    // deja en 0), así que se totalizan por el monto exacto (comando "1").
+    const totalizacion = venta.method?.cash
+      ? send(
+          `2${codigoFiscal}${formatMontoTfhka(Number(venta.recibido || 0) * (Number(venta.tasaCambio) || 1))}`
+        )
+      : send(`1${codigoFiscal}`)
     if (!totalizacion.okCmd) {
       return {
         ok: false,

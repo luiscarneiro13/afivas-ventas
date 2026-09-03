@@ -20,7 +20,7 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
     <section class="config-section">
       <h2 class="section-title">Configuración de sistema</h2>
       <div class="config-grid">
-        <NavCard icon="printer" label="Máquina fiscal" :to="{ name: 'configuracion-maquina-fiscal' }" />
+        <NavCard icon="printer" label="Conf. Fiscal" :to="{ name: 'configuracion-maquina-fiscal' }" />
         <NavCard icon="lock" label="Usuarios" :to="{ name: 'configuracion-usuarios' }" />
       </div>
     </section>
