@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { version as appVersion } from '../../package.json'
 
 // API expuesta al renderer.
 const api = {
   versions: {
+    app: appVersion,
     node: process.versions.node,
     chrome: process.versions.chrome,
     electron: process.versions.electron

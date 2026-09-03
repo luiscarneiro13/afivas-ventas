@@ -9,6 +9,8 @@ const router = useRouter()
 const auth = useAuthStore()
 const caja = useCajaStore()
 
+const appVersion = window.api?.versions?.app || ''
+
 const user = ref('')
 const pass = ref('')
 const error = ref('')
@@ -38,6 +40,7 @@ async function onSubmit() {
       <img class="brand-logo" :src="logoUrl" alt="Afivas Store" />
       <h1>Afivas Ventas</h1>
       <p class="sub">Sistema de punto de venta</p>
+      <p class="version">v{{ appVersion }}</p>
       <form @submit.prevent="onSubmit">
         <div class="field">
           <label>Usuario</label>
@@ -102,6 +105,11 @@ async function onSubmit() {
 .login-card p.sub {
   color: var(--text-muted);
   font-size: 13px;
+  margin-bottom: 2px;
+}
+.login-card p.version {
+  color: var(--text-muted);
+  font-size: 11px;
   margin-bottom: 26px;
 }
 .field {

@@ -1,6 +1,6 @@
 {
   "name": "afivas-ventas",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Afivas Ventas — Sistema de punto de venta (Electron + Vue 3)",
   "author": "Afivas",
   "private": true,
@@ -10,8 +10,9 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps && npm install @koromix/koffi-win32-ia32@3.1.6 --no-save --force",
-    "build:win32": "electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win --ia32",
-    "build:win32:portable": "electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win portable --ia32"
+    "version:bump": "npm --no-git-tag-version version patch",
+    "build:win32": "npm run version:bump && electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win --ia32 && npm run postinstall",
+    "build:win32:portable": "npm run version:bump && electron-vite build && WINEPREFIX=$HOME/.wine32 electron-builder --win portable --ia32 && npm run postinstall"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
