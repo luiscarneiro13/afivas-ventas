@@ -151,6 +151,7 @@ async function confirmDelete() {
       <table class="data-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Producto</th>
             <th>Categoría</th>
             <th>Precio $</th>
@@ -161,11 +162,12 @@ async function confirmDelete() {
         </thead>
         <tbody>
           <tr v-if="filteredProducts.length === 0">
-            <td colspan="6">
+            <td colspan="7">
               <EmptyState icon="box" title="Sin productos" subtitle="No se encontraron coincidencias" />
             </td>
           </tr>
-          <tr v-for="p in filteredProducts" :key="p.codigo">
+          <tr v-for="(p, i) in filteredProducts" :key="p.codigo">
+            <td class="num">{{ i + 1 }}</td>
             <td>
               <div class="prod-cell">
                 <b>{{ p.desc }}</b>

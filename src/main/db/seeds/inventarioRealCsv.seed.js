@@ -1,16 +1,28 @@
-// Seeder MANUAL — NO forma parte de runSeeds() (no se ejecuta
-// automáticamente al iniciar la app). Es un respaldo del inventario real
-// del negocio (tomado del "Reporte General de Inventario" del sistema
-// anterior), para poder restaurarlo si algún día se borra la base de
-// datos. Para correrlo hace falta invocar seedInventarioReal(knex) a
-// propósito (por ejemplo desde un script puntual).
+// Seeder del catálogo real de productos del negocio (parte de runSeeds(),
+// se ejecuta automáticamente al iniciar la app). Se tomó del "Reporte
+// General de Inventario" del sistema anterior, exportado a CSV para
+// parsearlo de forma exacta en vez de transcribirlo a mano. Es idempotente
+// por código (onConflict('codigo').ignore()): en cada arranque intenta
+// insertar la lista completa e ignora los códigos que ya existan, así que
+// agregar productos nuevos a este archivo los lleva también a las
+// instalaciones que ya tenían datos, sin duplicar los existentes.
 //
-// El reporte de origen no indica la familia de cada producto, así que la
-// categoría se infiere por el prefijo del código (dominante por tipo de
-// producto dentro de ese prefijo), con excepciones puntuales para los
-// códigos que no calzan con el resto de su prefijo. Es una aproximación
-// razonable, no perfecta — se puede corregir producto por producto luego
-// desde la pantalla de Productos.
+// codigo/existencia/precio se extrajeron programáticamente del CSV
+// original (parseo por columnas, verificado: 438 filas, sin duplicados,
+// suma de existencia = 2877, que coincide exactamente con el total del
+// reporte —2884— menos las 7 unidades de PRUE001 "Producto prueba", el
+// dato de prueba del sistema fiscal anterior. Se incluye igualmente en
+// este seed (con precio nominal de 0.01) porque se sigue usando para hacer
+// pruebas en el sistema actual. Las descripciones se dejaron con el espaciado correcto
+// entre palabras (el CSV a veces concatena sin espacio el texto que en el
+// reporte original ocupaba dos líneas, ej. "DEARMEBEAUTY").
+//
+// La categoría no viene en el reporte de origen (no está agrupado por
+// familia), así que se infiere por el prefijo del código (dominante por
+// tipo de producto dentro de ese prefijo), con excepciones puntuales para
+// los códigos que no calzan con el resto de su prefijo. Es una
+// aproximación razonable, no perfecta — se puede corregir producto por
+// producto luego desde la pantalla de Productos.
 //
 // Formato de cada fila: [codigo, descripcion, existencia, precio]
 const PRODUCTOS = [
@@ -320,6 +332,8 @@ const PRODUCTOS = [
   ['PR0003', 'PROTECTOR SOLAR AVENE', 7, 2.59],
   ['PR0004', 'PROTECTOR SOLAR SPRAY RQ', 5, 3.02],
   ['PR0005', 'PROTECTOR SOLAR BARRA RQ', 7, 2.59],
+  ['PRUE001', 'PRODUCTO PRUEBA', 7, 0.01],
+  ['PRUE002', 'PRODUCTO PRUEBA 2', 7, 0.01],
   ['PS0001', 'POLVO SUELTO COMPACTO MONREVE', 0, 1.72],
   ['PS0002', 'POLVO SUELTO BANANA 1.5 OZ BIGGERBOWIE', 4, 2.16],
   ['PT0001', 'PINTURA DE UÑA TRADICIONAL BODY PHILOSOP', 3, 0.86],
@@ -344,7 +358,7 @@ const PRODUCTOS = [
   ['PV0001', 'POLVO ACRILICO PARA UÑAS', 3, 1.72],
   ['PZ0001', 'PESTAÑAS CORRIDAS', 3, 1.72],
   ['RE0001', 'REGLA MINI DE ANIMALES', 0, 1.29],
-  ['RE0002', 'RESALTADORES PILDORA PQTE', 0, 4.0],
+  ['RE0002', 'RESALTADORES PILDORA PQTE', 0, 4],
   ['RI0001', 'RIMEL DE COLORES ECCSESE', 5, 0.86],
   ['RI0002', 'RIMEL COLOR NEGRO HEDYBEAUTY', 5, 1.72],
   ['RI0003', 'RIMEL COLOSAL COLOR NEGRO KISS PLUS', 13, 1.29],
@@ -623,6 +637,6 @@ export async function seedInventarioReal(knex) {
       stock_minimo: 3
     }
   })
-  await knex('productos').insert(rows)
+  await knex('productos').insert(rows).onConflict('codigo').ignore()
   return rows.length
 }

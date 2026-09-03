@@ -4,8 +4,8 @@ import bcrypt from 'bcryptjs'
 // Contraseña por defecto: 'admin123' — cambiarla es responsabilidad del
 // primer uso real de la app (no hay flujo de "forzar cambio" todavía).
 export async function seedUsuarios(knex) {
-  const count = await knex('usuarios').count({ c: '*' }).first()
-  if (Number(count.c) > 0) return
+  const existing = await knex('usuarios').where({ usuario: 'admin' }).first()
+  if (existing) return
 
   const passwordHash = await bcrypt.hash('admin123', 10)
   await knex('usuarios').insert({

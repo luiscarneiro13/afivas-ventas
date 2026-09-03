@@ -54,7 +54,5 @@ const BANCOS = [
 ]
 
 export async function seedBancos(knex) {
-  const count = await knex('bancos').count({ c: '*' }).first()
-  if (Number(count.c) > 0) return
-  await knex('bancos').insert(BANCOS.map((nombre) => ({ nombre })))
+  await knex('bancos').insert(BANCOS.map((nombre) => ({ nombre }))).onConflict('nombre').ignore()
 }

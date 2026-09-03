@@ -1,7 +1,6 @@
-// Incluye las categorías demo originales (referenciadas por
-// productos.seed.js) más las familias de inventario reales del negocio
-// (tomadas del sistema fiscal previo) — sin duplicar los nombres que ya
-// coinciden entre ambos conjuntos (Accesorios, Papelería, Bisutería).
+// Familias de inventario reales del negocio (tomadas del sistema fiscal
+// previo, ver inventarioRealCsv.seed.js) más algunas categorías generales
+// de resguardo para clasificar productos futuros fuera de ese catálogo.
 const CATEGORIES = [
   'Accesorios',
   'Bazar',
@@ -20,9 +19,6 @@ const CATEGORIES = [
 ]
 
 export async function seedCategorias(knex) {
-  const count = await knex('categorias').count({ c: '*' }).first()
-  if (Number(count.c) > 0) return
-
   const rows = CATEGORIES.map((nombre) => ({ nombre }))
-  await knex('categorias').insert(rows)
+  await knex('categorias').insert(rows).onConflict('nombre').ignore()
 }

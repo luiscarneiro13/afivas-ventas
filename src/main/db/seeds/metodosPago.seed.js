@@ -14,9 +14,6 @@ const PAY_METHODS = [
 ]
 
 export async function seedMetodosPago(knex) {
-  const count = await knex('metodos_pago').count({ c: '*' }).first()
-  if (Number(count.c) > 0) return
-
   const rows = PAY_METHODS.map((m, idx) => ({
     id: m.id,
     etiqueta: m.label,
@@ -25,5 +22,5 @@ export async function seedMetodosPago(knex) {
     codigo_fiscal: m.codigoFiscal,
     orden: idx
   }))
-  await knex('metodos_pago').insert(rows)
+  await knex('metodos_pago').insert(rows).onConflict('id').ignore()
 }

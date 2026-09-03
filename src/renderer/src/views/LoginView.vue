@@ -41,7 +41,7 @@ async function onSubmit() {
       <form @submit.prevent="onSubmit">
         <div class="field">
           <label>Usuario</label>
-          <input v-model="user" type="text" placeholder="admin" autocomplete="off" required />
+          <input v-model="user" type="text" placeholder="Usuario" autocomplete="off" required />
         </div>
         <div class="field">
           <label>Contraseña</label>
