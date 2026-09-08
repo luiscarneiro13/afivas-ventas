@@ -8,7 +8,11 @@ function mapProducto(row) {
     desc: row.descripcion,
     cat: row.categoria_nombre,
     categoriaId: row.categoria_id,
-    precio: Number(row.precio),
+    // precio = precio de venta (CON IVA): es el que se muestra y el que se
+    // usa en el carrito. precioSinIva es solo informativo/interno (lo usa
+    // la impresora fiscal, que calcula el IVA ella misma).
+    precio: Number(row.precio_con_iva),
+    precioSinIva: Number(row.precio),
     existencia: row.existencia,
     stockMinimo: row.stock_minimo
   }
@@ -51,7 +55,7 @@ export const useCatalogStore = defineStore('catalog', {
     exists(codigo) {
       return this.products.some((p) => p.codigo === codigo)
     },
-    async create({ codigo, desc, cat, precio, existencia, stockMinimo }) {
+    async create({ codigo, desc, cat, precioConIva, existencia, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
@@ -59,20 +63,20 @@ export const useCatalogStore = defineStore('catalog', {
         codigo,
         descripcion: desc,
         categoriaId: categoria.id,
-        precio,
+        precioConIva,
         existencia,
         stockMinimo
       })
       await this.fetchAll()
     },
-    async update(codigo, { desc, cat, precio, existencia, stockMinimo }) {
+    async update(codigo, { desc, cat, precioConIva, existencia, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
       await window.api.productosUpdate(codigo, {
         descripcion: desc,
         categoriaId: categoria.id,
-        precio,
+        precioConIva,
         existencia,
         stockMinimo
       })

@@ -622,17 +622,26 @@ export async function seedInventarioReal(knex) {
   const categorias = await knex('categorias').select('id', 'nombre')
   const categoriaIdPorNombre = new Map(categorias.map((c) => [c.nombre, c.id]))
 
+  // Los precios de este seed son sin IVA (tal como venían del reporte de
+  // inventario original). precio_con_iva se calcula acá con el % de IVA
+  // vigente del sistema — seedConfigEmpresa corre antes que este seed (ver
+  // seeds/index.js) justo para que esta fila ya exista en este punto.
+  const config = await knex('config_empresa').where({ id: 1 }).first()
+  const porcentajeIva = config ? Number(config.porcentaje_iva) : 16
+
   const rows = PRODUCTOS.map(([codigo, desc, existencia, precio]) => {
     const nombreCategoria = categoriaDe(codigo)
     const categoriaId = categoriaIdPorNombre.get(nombreCategoria)
     if (!categoriaId) {
       throw new Error(`Seed de inventario real: categoría "${nombreCategoria}" no existe (producto ${codigo})`)
     }
+    const precioConIva = Math.round(precio * (1 + porcentajeIva / 100) * 100) / 100
     return {
       codigo,
       descripcion: formatearDescripcion(desc),
       categoria_id: categoriaId,
       precio,
+      precio_con_iva: precioConIva,
       existencia,
       stock_minimo: 3
     }

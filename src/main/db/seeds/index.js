@@ -11,13 +11,17 @@ import { seedConfigImpresoraFiscal } from './configImpresoraFiscal.seed.js'
 // Cada seed es idempotente por su clave única (onConflict().ignore() o
 // chequeo previo por id): en cada arranque puede volver a correr sin
 // duplicar lo que ya existe, y agregar filas nuevas a instalaciones viejas.
+//
+// configEmpresa va antes que inventarioReal: este último necesita el % de
+// IVA vigente (config_empresa.porcentaje_iva) para calcular precio_con_iva
+// de cada producto al sembrarlo.
 export async function runSeeds(knex) {
   await seedUsuarios(knex)
   await seedCategorias(knex)
+  await seedConfigEmpresa(knex)
   await seedInventarioReal(knex)
   await seedClientesReales(knex)
   await seedMetodosPago(knex)
   await seedBancos(knex)
-  await seedConfigEmpresa(knex)
   await seedConfigImpresoraFiscal(knex)
 }

@@ -11,6 +11,7 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
         <NavCard icon="layers" label="Categorías de productos" :to="{ name: 'configuracion-categorias' }" />
         <NavCard icon="truck" label="Proveedores" :to="{ name: 'configuracion-proveedores' }" />
         <NavCard icon="inbox" label="Carga de inventario" :to="{ name: 'entrada' }" />
+        <NavCard icon="outbox" label="Descargo de inventario" :to="{ name: 'descargo' }" />
         <NavCard icon="bars" label="Gráficas" :to="{ name: 'reportes' }" />
         <NavCard icon="user" label="Clientes" :to="{ name: 'configuracion-clientes' }" />
         <NavCard icon="dollar" label="Ventas" :to="{ name: 'configuracion-ventas' }" />

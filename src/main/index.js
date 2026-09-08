@@ -141,11 +141,13 @@ function formatMontoTfhka(monto) {
 // inmediato — un envío a medias sobre memoria fiscal no debe continuarse.
 //
 // Esta función no calcula nada de negocio: recibe la venta ya resuelta
-// desde VentaView.vue (item.precioBs en bolívares, correlativoFiscal, etc.)
-// y solo formatea/envía los comandos TFHKA. La impresora sí calcula BI/IVA/
-// Total ella misma a partir del precio de cada ítem registrado, según la
-// tasa fiscal programada en el equipo — eso es inherente al protocolo y no
-// algo que este proceso decida.
+// desde VentaView.vue (item.precioSinIvaBs en bolívares, correlativoFiscal,
+// etc.) y solo formatea/envía los comandos TFHKA. La impresora sí calcula
+// BI/IVA/Total ella misma a partir del precio de cada ítem registrado, según
+// la tasa fiscal programada en el equipo — por eso se le manda el precio SIN
+// IVA de cada producto (item.precio/item.precioBs ya tienen el IVA incluido,
+// son para mostrar/vender, no para la impresora — mandarle ese duplicaría el
+// IVA en la factura fiscal real).
 function printFacturaFiscal(comPort, venta) {
   return withTfhka(comPort, (lib) => {
     const SendCmd = lib.func('bool __stdcall SendCmd(_Out_ int *status, _Out_ int *error, const char *cmd)')
@@ -212,7 +214,7 @@ function printFacturaFiscal(comPort, venta) {
       }
     }
     for (const item of venta.items || []) {
-      const cmd = `!${formatPrecioTfhka(item.precioBs)}${formatCantidadTfhka(item.cantidad)}${item.desc}`
+      const cmd = `!${formatPrecioTfhka(item.precioSinIvaBs)}${formatCantidadTfhka(item.cantidad)}${item.desc}`
       const r = send(cmd)
       if (!r.okCmd) {
         return {

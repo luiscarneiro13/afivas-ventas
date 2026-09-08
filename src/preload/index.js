@@ -58,6 +58,10 @@ const api = {
   stockRegistrarEntrada: (payload) => ipcRenderer.invoke('stock:registrarEntrada', payload),
   stockList: () => ipcRenderer.invoke('stock:list'),
 
+  // Descargos de stock
+  descargosRegistrar: (payload) => ipcRenderer.invoke('descargos:registrar', payload),
+  descargosList: () => ipcRenderer.invoke('descargos:list'),
+
   // Caja
   cajaActual: () => ipcRenderer.invoke('caja:actual'),
   cajaAbrir: (payload) => ipcRenderer.invoke('caja:abrir', payload),

@@ -12,39 +12,46 @@ export const useCartStore = defineStore('cart', {
   }),
   getters: {
     count: (state) => state.items.reduce((a, x) => a + x.cantidad, 0),
-    subtotal: (state) => round2(state.items.reduce((a, x) => a + x.precio * x.cantidad, 0)),
-    iva() {
+    // x.precio ya es el precio CON IVA (el de venta) — total es simplemente
+    // la suma de cada línea. subtotal/iva se desglosan hacia atrás a partir
+    // de ese total (no se suman hacia adelante): con IVA incluido en el
+    // precio, el subtotal "sin IVA" es una consecuencia del total, no al
+    // revés.
+    total: (state) => round2(state.items.reduce((a, x) => a + x.precio * x.cantidad, 0)),
+    subtotal() {
       const configEmpresa = useConfigEmpresaStore()
-      return round2(this.subtotal * (configEmpresa.porcentajeIva / 100))
+      return round2(this.total / (1 + configEmpresa.porcentajeIva / 100))
     },
-    total() {
-      return round2(this.subtotal + this.iva)
+    iva() {
+      return round2(this.total - this.subtotal)
     },
     // Los productos se cargan y almacenan en dólares; los bolívares siempre
     // se calculan al vuelo con la tasa vigente, nunca se guardan como base.
-    // itemsConBs agrega precioBs/subtotalLineaBs por ítem, cada uno YA
-    // redondeado a 2 decimales (el mismo número que se ve por fila en la
-    // grilla) — se usa tanto para armar subtotalBs (sumando esas líneas
-    // redondeadas, no la suma cruda sin redondear) como para guardar el
-    // snapshot exacto de la venta al registrarla (ver stores/sales.js).
-    // ivaBs/totalBs parten de ese subtotalBs, no de sus equivalentes en USD.
+    // itemsConBs agrega precioBs/subtotalLineaBs (CON IVA, cada uno ya
+    // redondeado a 2 decimales — el mismo número que se ve por fila en la
+    // grilla) y precioSinIvaBs (SIN IVA: es lo que se le manda a la
+    // impresora fiscal, que calcula el IVA ella misma según su propia tasa
+    // programada — nunca se le debe mandar un precio que ya lo incluya).
     itemsConBs() {
       const caja = useCajaStore()
       return this.items.map((x) => ({
         ...x,
         precioBs: round2(x.precio * caja.tasa),
-        subtotalLineaBs: round2(x.precio * x.cantidad * caja.tasa)
+        subtotalLineaBs: round2(x.precio * x.cantidad * caja.tasa),
+        precioSinIvaBs: round2(x.precioSinIva * caja.tasa)
       }))
     },
-    subtotalBs() {
+    // totalBs es la suma de las líneas ya redondeadas (con IVA); subtotalBs/
+    // ivaBs se desglosan hacia atrás a partir de él, igual que en USD.
+    totalBs() {
       return round2(this.itemsConBs.reduce((a, x) => a + x.subtotalLineaBs, 0))
     },
-    ivaBs() {
+    subtotalBs() {
       const configEmpresa = useConfigEmpresaStore()
-      return round2(this.subtotalBs * (configEmpresa.porcentajeIva / 100))
+      return round2(this.totalBs / (1 + configEmpresa.porcentajeIva / 100))
     },
-    totalBs() {
-      return round2(this.subtotalBs + this.ivaBs)
+    ivaBs() {
+      return round2(this.totalBs - this.subtotalBs)
     }
   },
   actions: {
@@ -65,7 +72,14 @@ export const useCartStore = defineStore('cart', {
       if (item) {
         item.cantidad++
       } else {
-        this.items.push({ productoId: p.id, codigo: p.codigo, desc: p.desc, precio: p.precio, cantidad: 1 })
+        this.items.push({
+          productoId: p.id,
+          codigo: p.codigo,
+          desc: p.desc,
+          precio: p.precio,
+          precioSinIva: p.precioSinIva,
+          cantidad: 1
+        })
       }
       const restante = p.existencia - (enCarrito + 1)
       const minimo = p.stockMinimo ?? 3

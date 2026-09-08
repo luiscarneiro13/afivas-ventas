@@ -7,6 +7,7 @@ import { makeMetodosPagoRepository } from './metodosPagoRepository.js'
 import { makeBancosRepository } from './bancosRepository.js'
 import { makeSesionesCajaRepository } from './sesionesCajaRepository.js'
 import { makeEntradasStockRepository } from './entradasStockRepository.js'
+import { makeDescargosStockRepository } from './descargosStockRepository.js'
 import { makeVentasRepository } from './ventasRepository.js'
 import { makeConfigEmpresaRepository } from './configEmpresaRepository.js'
 import { makeConfigImpresoraRepository } from './configImpresoraRepository.js'
@@ -23,6 +24,7 @@ export function makeRepositories(knex) {
     bancos: makeBancosRepository(knex),
     sesionesCaja: makeSesionesCajaRepository(knex),
     entradasStock: makeEntradasStockRepository(knex),
+    descargosStock: makeDescargosStockRepository(knex),
     ventas: makeVentasRepository(knex),
     configEmpresa: makeConfigEmpresaRepository(knex),
     configImpresora: makeConfigImpresoraRepository(knex),

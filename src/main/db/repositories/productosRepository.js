@@ -4,6 +4,17 @@ function withCategoria(query) {
     .leftJoin('categorias', 'categorias.id', 'productos.categoria_id')
 }
 
+// El precio que carga el usuario (en el formulario y acá) es el precio CON
+// IVA — precio sin IVA se deriva de ese valor con el % de IVA vigente en
+// config_empresa, en el momento exacto de guardar. Se recalcula siempre acá
+// (autoridad única) en vez de confiar en un valor ya calculado que mande el
+// front, para no desincronizarse si el % de IVA cambió entretanto.
+async function calcularPrecioSinIva(knex, precioConIva) {
+  const config = await knex('config_empresa').where({ id: 1 }).first()
+  const porcentajeIva = config ? Number(config.porcentaje_iva) : 16
+  return Math.round((Number(precioConIva) / (1 + porcentajeIva / 100)) * 100) / 100
+}
+
 export function makeProductosRepository(knex) {
   return {
     list() {
@@ -22,25 +33,29 @@ export function makeProductosRepository(knex) {
         .orderBy('productos.codigo')
     },
 
-    async create({ codigo, descripcion, categoriaId, precio, existencia, stockMinimo }) {
+    async create({ codigo, descripcion, categoriaId, precioConIva, existencia, stockMinimo }) {
+      const precio = await calcularPrecioSinIva(knex, precioConIva)
       const [id] = await knex('productos').insert({
         codigo,
         descripcion,
         categoria_id: categoriaId,
         precio,
+        precio_con_iva: precioConIva,
         existencia: existencia ?? 0,
         stock_minimo: stockMinimo ?? 3
       })
       return withCategoria(knex('productos')).where('productos.id', id).first()
     },
 
-    async update(codigo, { descripcion, categoriaId, precio, existencia, stockMinimo }) {
+    async update(codigo, { descripcion, categoriaId, precioConIva, existencia, stockMinimo }) {
+      const precio = await calcularPrecioSinIva(knex, precioConIva)
       await knex('productos')
         .where({ codigo })
         .update({
           descripcion,
           categoria_id: categoriaId,
           precio,
+          precio_con_iva: precioConIva,
           existencia: existencia ?? 0,
           stock_minimo: stockMinimo ?? 3,
           updated_at: knex.fn.now()

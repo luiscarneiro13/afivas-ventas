@@ -104,6 +104,7 @@ export function makeVentasRepository(knex) {
             descripcion_snapshot: producto.descripcion,
             precio_unitario_snapshot: item.precioUnitario,
             precio_unitario_bs: item.precioUnitarioBs,
+            precio_unitario_sin_iva_bs: item.precioUnitarioSinIvaBs,
             cantidad: item.cantidad,
             subtotal_linea: item.precioUnitario * item.cantidad,
             subtotal_linea_bs: item.subtotalLineaBs

@@ -8,6 +8,7 @@ import AppLayout from '@renderer/components/layout/AppLayout.vue'
 import VentaView from '@renderer/views/VentaView.vue'
 import ProductosView from '@renderer/views/ProductosView.vue'
 import EntradaView from '@renderer/views/EntradaView.vue'
+import DescargoView from '@renderer/views/DescargoView.vue'
 import ReportesView from '@renderer/views/ReportesView.vue'
 import ConfiguracionView from '@renderer/views/ConfiguracionView.vue'
 import ConfiguracionMaquinaFiscalView from '@renderer/views/ConfiguracionMaquinaFiscalView.vue'
@@ -35,6 +36,7 @@ const routes = [
         meta: { title: 'Configuración · Productos' }
       },
       { path: 'entrada', name: 'entrada', component: EntradaView, meta: { title: 'Carga de Inventario' } },
+      { path: 'descargo', name: 'descargo', component: DescargoView, meta: { title: 'Descargo de Inventario' } },
       { path: 'reportes', name: 'reportes', component: ReportesView, meta: { title: 'Gráficas' } },
       { path: 'configuracion', name: 'configuracion', component: ConfiguracionView, meta: { title: 'Configuración' } },
       {

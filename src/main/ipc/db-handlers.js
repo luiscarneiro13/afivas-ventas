@@ -50,6 +50,10 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('stock:registrarEntrada', (_e, payload) => repos.entradasStock.registrar(payload))
   ipcMain.handle('stock:list', () => repos.entradasStock.list())
 
+  // Descargos de stock
+  ipcMain.handle('descargos:registrar', (_e, payload) => repos.descargosStock.registrar(payload))
+  ipcMain.handle('descargos:list', () => repos.descargosStock.list())
+
   // Caja
   ipcMain.handle('caja:actual', () => repos.sesionesCaja.actual())
   ipcMain.handle('caja:abrir', (_e, payload) => repos.sesionesCaja.abrir(payload))

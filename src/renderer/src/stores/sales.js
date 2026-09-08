@@ -41,7 +41,17 @@ function mapVenta(venta, items) {
       subtotalLineaBs:
         i.subtotal_linea_bs != null
           ? Number(i.subtotal_linea_bs)
-          : Number(i.precio_unitario_snapshot) * i.cantidad * Number(venta.tasa_cambio)
+          : Number(i.precio_unitario_snapshot) * i.cantidad * Number(venta.tasa_cambio),
+      // Precio SIN IVA en Bs — lo que se le manda a la impresora fiscal (ella
+      // calcula el IVA sola). Ventas de antes de este campo no lo tienen: en
+      // ese modelo precio_unitario_bs YA era sin IVA, así que sirve de
+      // respaldo tal cual.
+      precioSinIvaBs:
+        i.precio_unitario_sin_iva_bs != null
+          ? Number(i.precio_unitario_sin_iva_bs)
+          : i.precio_unitario_bs != null
+            ? Number(i.precio_unitario_bs)
+            : Number(i.precio_unitario_snapshot) * Number(venta.tasa_cambio)
     })),
     subtotal: Number(venta.subtotal),
     subtotalBs: venta.subtotal_bs != null ? Number(venta.subtotal_bs) : Number(venta.subtotal) * Number(venta.tasa_cambio),
@@ -130,7 +140,8 @@ export const useSalesStore = defineStore('sales', {
           cantidad: i.cantidad,
           precioUnitario: i.precio,
           precioUnitarioBs: i.precioBs,
-          subtotalLineaBs: i.subtotalLineaBs
+          subtotalLineaBs: i.subtotalLineaBs,
+          precioUnitarioSinIvaBs: i.precioSinIvaBs
         })),
         subtotal,
         subtotalBs,
