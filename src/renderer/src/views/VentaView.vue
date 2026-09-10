@@ -225,7 +225,10 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) 
     // no hay que calcular nada: se manda el REF que ya quedó fijo en la BD,
     // y un reintento tras un fallo de impresión reenvía ese mismo número.
     const configFiscal = await window.api.configImpresoraGet()
-    const siguienteCorrelativo = (configFiscal?.correlativo_factura_fiscal || 0) + 1
+    const correlativoActual = configFiscal?.correlativo_factura_fiscal
+      ? (parseInt(String(configFiscal.correlativo_factura_fiscal), 10) || 0)
+      : 0
+    const siguienteCorrelativo = correlativoActual + 1
 
     const sale = await sales.registrarVenta({
       items: cart.itemsConBs,
@@ -406,12 +409,28 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       </div>
 
       <div class="vb-right">
-        <div class="vb-right-title">Resumen de venta</div>
-        <div class="vb-totals">
-          <div><span>Subtotal</span><b class="num">{{ fmtBs(cart.subtotalBs) }}</b></div>
-          <div><span>IVA ({{ ivaPorcentajeFmt }}%)</span><b class="num">{{ fmtBs(cart.ivaBs) }}</b></div>
-          <div class="tot"><span>Total</span><b class="num">{{ fmtBs(cart.totalBs) }}</b></div>
-        </div>
+        <template v-if="cart.items.length > 0">
+          <div class="vb-fiscal-title">Vista previa fiscal</div>
+          <div class="vb-fiscal-items">
+            <div v-for="(item, i) in cart.fiscalPreview.items" :key="i" class="vb-fiscal-item">
+              <div class="vb-fiscal-item-header">
+                <span class="vb-fiscal-codigo">{{ item.codigo }}</span>
+                <span class="vb-fiscal-cant">{{ item.cantidad }}x</span>
+              </div>
+              <div class="vb-fiscal-item-desc">{{ item.desc }}</div>
+              <div class="vb-fiscal-item-subtotal">
+                <span>Subtotal s/IVA:</span>
+                <b class="num">{{ fmtBs(item.subtotalLineaSinIvaBs) }}</b>
+              </div>
+            </div>
+          </div>
+          <div class="vb-fiscal-totals">
+            <div><span>Base imponible</span><b class="num">{{ fmtBs(cart.fiscalPreview.subtotalSinIvaBs) }}</b></div>
+            <div><span>IVA ({{ ivaPorcentajeFmt }}%)</span><b class="num">{{ fmtBs(cart.fiscalPreview.ivaBs) }}</b></div>
+            <div class="tot"><span>Total fiscal</span><b class="num">{{ fmtBs(cart.fiscalPreview.totalBs) }}</b></div>
+          </div>
+        </template>
+        
         <button class="checkout-btn" :disabled="cart.items.length === 0" @click="abrirPago">
           <span>Cobrar</span>
           <span class="num">{{ fmtBs(cart.totalBs) }}</span>
@@ -665,50 +684,6 @@ table.vb-datagrid {
   color: var(--danger);
 }
 
-.vb-right-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 14px;
-}
-.vb-totals {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-}
-.vb-totals div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.vb-totals span {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-.vb-totals b {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text);
-}
-.vb-totals .tot {
-  margin-top: 4px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--border);
-}
-.vb-totals .tot span {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.vb-totals .tot b {
-  font-size: 20px;
-  color: var(--primary);
-}
 .checkout-btn {
   width: 100%;
   margin-top: 16px;
@@ -735,5 +710,97 @@ table.vb-datagrid {
   color: var(--text-muted);
   box-shadow: none;
   cursor: not-allowed;
+}
+
+.vb-fiscal-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.vb-fiscal-items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  margin-top: 10px;
+}
+.vb-fiscal-item {
+  font-size: 10px;
+  margin-bottom: 8px;
+}
+.vb-fiscal-item-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.vb-fiscal-codigo {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.vb-fiscal-cant {
+  font-weight: 700;
+  color: var(--primary);
+}
+.vb-fiscal-item-desc {
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.vb-fiscal-item-subtotal {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.vb-fiscal-item-subtotal span {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+.vb-fiscal-item-subtotal b {
+  font-size: 10px;
+  font-weight: 600;
+}
+.vb-fiscal-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.vb-fiscal-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.vb-fiscal-totals span {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.vb-fiscal-totals b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+.vb-fiscal-totals .tot {
+  margin-top: 2px;
+  padding-top: 6px;
+}
+.vb-fiscal-totals .tot span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vb-fiscal-totals .tot b {
+  font-size: 13px;
+  color: var(--primary);
 }
 </style>

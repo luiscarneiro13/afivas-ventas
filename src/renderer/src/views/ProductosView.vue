@@ -12,6 +12,7 @@ import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import ProductoModal from '@renderer/components/productos/ProductoModal.vue'
 import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import { fmtUsd, fmtBs } from '@renderer/utils/format'
+import { exportToExcel, importFromExcel, pickExcelFile } from '@renderer/utils/excel'
 
 const catalog = useCatalogStore()
 const caja = useCajaStore()
@@ -93,6 +94,90 @@ async function confirmDelete() {
   }
   productoAEliminar.value = null
 }
+
+const PRODUCTOS_COLUMNS = [
+  { key: 'codigo', header: 'Código', width: 16 },
+  { key: 'desc', header: 'Descripción', width: 32 },
+  { key: 'cat', header: 'Categoría', width: 20 },
+  { key: 'precioSinIva', header: 'Precio sin IVA ($)', width: 16 },
+  { key: 'precio', header: 'Precio con IVA ($)', width: 18 },
+  { key: 'precioBs', header: 'Precio con IVA (Bs)', width: 18, format: (r) => Number((r.precio * caja.tasa).toFixed(2)) },
+  { key: 'existencia', header: 'Existencia', width: 12 },
+  { key: 'stockMinimo', header: 'Alerta stock mínimo', width: 16 }
+]
+
+async function exportProductos() {
+  if (filteredProducts.value.length === 0) {
+    ui.toast('No hay productos para exportar', 'error')
+    return
+  }
+  await exportToExcel({
+    filename: `productos_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheetName: 'Productos',
+    columns: PRODUCTOS_COLUMNS,
+    rows: filteredProducts.value
+  })
+  ui.toast('Productos exportados', 'info')
+}
+
+async function importProductos() {
+  const file = await pickExcelFile()
+  if (!file) return
+  let filas
+  try {
+    filas = await importFromExcel(file)
+  } catch (e) {
+    ui.toast('No se pudo leer el archivo: ' + (e?.message || 'archivo inválido'), 'error')
+    return
+  }
+  if (filas.length === 0) {
+    ui.toast('El archivo no tiene filas para importar', 'error')
+    return
+  }
+
+  let creados = 0
+  let actualizados = 0
+  const errores = []
+  for (const fila of filas) {
+    const codigo = String(fila['Código'] ?? '').trim()
+    const desc = String(fila['Descripción'] ?? '').trim()
+    const cat = String(fila['Categoría'] ?? '').trim()
+    const precioConIva = Number(fila['Precio con IVA ($)'])
+    const existencia = fila['Existencia'] !== undefined && fila['Existencia'] !== '' ? Number(fila['Existencia']) : 0
+    const stockMinimo =
+      fila['Alerta stock mínimo'] !== undefined && fila['Alerta stock mínimo'] !== ''
+        ? Number(fila['Alerta stock mínimo'])
+        : 3
+
+    if (!codigo || !desc || !cat || !Number.isFinite(precioConIva)) {
+      errores.push(`Fila con código "${codigo || '(vacío)'}": faltan datos obligatorios`)
+      continue
+    }
+    if (!categorias.items.some((c) => c.nombre === cat)) {
+      errores.push(`Código ${codigo}: la categoría "${cat}" no existe`)
+      continue
+    }
+
+    try {
+      if (catalog.exists(codigo)) {
+        await catalog.update(codigo, { desc, cat, precioConIva, existencia, stockMinimo })
+        actualizados++
+      } else {
+        await catalog.create({ codigo, desc, cat, precioConIva, existencia, stockMinimo })
+        creados++
+      }
+    } catch (e) {
+      errores.push(`Código ${codigo}: ${e?.message || 'error al guardar'}`)
+    }
+  }
+
+  if (creados || actualizados) {
+    ui.toast(`Importación completa: ${creados} creados, ${actualizados} actualizados`, 'info')
+  }
+  if (errores.length) {
+    ui.toast(`${errores.length} fila(s) con errores: ${errores.slice(0, 3).join(' | ')}`, 'error')
+  }
+}
 </script>
 
 <template>
@@ -132,11 +217,11 @@ async function confirmDelete() {
         </select>
       </div>
       <div class="vt-actions">
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="exportProductos">
           <AppIcon name="excel" :size="15" />
           Exportar
         </BaseButton>
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="importProductos">
           <AppIcon name="excel" :size="15" />
           Importar
         </BaseButton>

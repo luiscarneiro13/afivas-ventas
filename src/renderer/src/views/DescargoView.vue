@@ -1,19 +1,46 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useDescargosStore } from '@renderer/stores/descargos'
+import { useUiStore } from '@renderer/stores/ui'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import DescargoModal from '@renderer/components/productos/DescargoModal.vue'
 import { fmtDateTime } from '@renderer/utils/format'
+import { exportToExcel } from '@renderer/utils/excel'
 
 const descargos = useDescargosStore()
+const ui = useUiStore()
 
 onMounted(() => descargos.fetchAll())
 
 const modalOpen = ref(false)
 function openCreate() {
   modalOpen.value = true
+}
+
+const DESCARGOS_COLUMNS = [
+  { key: 'fecha', header: 'Fecha', width: 20, format: (r) => fmtDateTime(r.fecha) },
+  { key: 'codigo', header: 'Código', width: 16 },
+  { key: 'desc', header: 'Producto', width: 32 },
+  { key: 'cantidad', header: 'Cantidad', width: 12 },
+  { key: 'motivo', header: 'Motivo', width: 20 },
+  { key: 'nota', header: 'Nota', width: 28 },
+  { key: 'usuario', header: 'Usuario', width: 20 }
+]
+
+async function exportDescargos() {
+  if (descargos.entries.length === 0) {
+    ui.toast('No hay descargos para exportar', 'error')
+    return
+  }
+  await exportToExcel({
+    filename: `descargos_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheetName: 'Descargos',
+    columns: DESCARGOS_COLUMNS,
+    rows: descargos.entries
+  })
+  ui.toast('Descargos exportados', 'info')
 }
 </script>
 
@@ -27,13 +54,9 @@ function openCreate() {
     <div class="view-toolbar">
       <h2 class="vt-title">Descargo de inventario</h2>
       <div class="vt-actions">
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="exportDescargos">
           <AppIcon name="excel" :size="15" />
           Exportar
-        </BaseButton>
-        <BaseButton variant="ghost" size="sm">
-          <AppIcon name="excel" :size="15" />
-          Importar
         </BaseButton>
         <BaseButton variant="primary" size="sm" @click="openCreate">
           <AppIcon name="plus" :size="14" />

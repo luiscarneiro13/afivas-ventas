@@ -1,19 +1,21 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useCatalogStore } from '@renderer/stores/catalog'
 import { useStockStore } from '@renderer/stores/stock'
 import { useAuthStore } from '@renderer/stores/auth'
+import { useConfigEmpresaStore } from '@renderer/stores/configEmpresa'
 import { useUiStore } from '@renderer/stores/ui'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseField from '@renderer/components/ui/BaseField.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
-import { fmtDateTime } from '@renderer/utils/format'
+import { digitsFromDecimal, fmtDateTime, fmtUsd, maskDisplay } from '@renderer/utils/format'
 
 const catalog = useCatalogStore()
 const stock = useStockStore()
 const auth = useAuthStore()
+const configEmpresa = useConfigEmpresaStore()
 const ui = useUiStore()
 
 const searchQuery = ref('')
@@ -23,6 +25,50 @@ const selectedProduct = ref(null)
 const cantidad = ref(1)
 const proveedor = ref('')
 const nota = ref('')
+
+// Costo con IVA pagado por esta mercancía (opcional, solo informativo/
+// margen). Misma máscara de centavos que el precio en ProductoModal.vue.
+const costoConIvaDigits = ref('0')
+const costoConIvaDisplay = computed(() => maskDisplay(costoConIvaDigits.value))
+function onInputCosto(e) {
+  costoConIvaDigits.value = e.target.value.replace(/\D/g, '').slice(0, 10) || '0'
+  nextTick(() => {
+    const len = e.target.value.length
+    e.target.setSelectionRange(len, len)
+  })
+}
+
+// Actualizar el precio de venta NUNCA es automático: el usuario tiene que
+// marcar el checkbox a propósito. El sistema no maneja lotes/costo
+// promedio, así que cambiar el precio solo por cargar inventario podría
+// alterar ventas sin que nadie lo haya decidido.
+const actualizarPrecio = ref(false)
+const nuevoPrecioConIvaDigits = ref('0')
+const nuevoPrecioConIvaDisplay = computed(() => maskDisplay(nuevoPrecioConIvaDigits.value))
+function onInputNuevoPrecio(e) {
+  nuevoPrecioConIvaDigits.value = e.target.value.replace(/\D/g, '').slice(0, 10) || '0'
+  nextTick(() => {
+    const len = e.target.value.length
+    e.target.setSelectionRange(len, len)
+  })
+}
+function selectAllMoney(e) {
+  e.target.select()
+}
+
+// Solo informativo (deshabilitado): igual que en ProductoModal.vue, el
+// backend recalcula y persiste este valor de forma autoritativa al guardar.
+const nuevoPrecioSinIvaPreview = computed(() => {
+  const precioConIva = Number(nuevoPrecioConIvaDigits.value) / 100
+  const precio = precioConIva / (1 + configEmpresa.porcentajeIva / 100)
+  return precio.toFixed(2)
+})
+
+watch(actualizarPrecio, (on) => {
+  if (on && selectedProduct.value) {
+    nuevoPrecioConIvaDigits.value = digitsFromDecimal(selectedProduct.value.precio)
+  }
+})
 
 onMounted(() => {
   stock.fetchAll()
@@ -40,6 +86,9 @@ function resetForm() {
   cantidad.value = 1
   proveedor.value = ''
   nota.value = ''
+  costoConIvaDigits.value = '0'
+  actualizarPrecio.value = false
+  nuevoPrecioConIvaDigits.value = '0'
 }
 
 async function registrar() {
@@ -52,6 +101,18 @@ async function registrar() {
     ui.toast('Ingresa una cantidad válida', 'error')
     return
   }
+
+  const costoConIva = costoConIvaDigits.value === '0' ? null : Number(costoConIvaDigits.value) / 100
+
+  let nuevoPrecioConIva = null
+  if (actualizarPrecio.value) {
+    nuevoPrecioConIva = Number(nuevoPrecioConIvaDigits.value) / 100
+    if (isNaN(nuevoPrecioConIva) || nuevoPrecioConIva <= 0) {
+      ui.toast('Ingresa un precio de venta válido', 'error')
+      return
+    }
+  }
+
   const desc = selectedProduct.value.desc
   try {
     await stock.registrarEntrada({
@@ -59,6 +120,8 @@ async function registrar() {
       cantidad: cant,
       proveedor: proveedor.value,
       nota: nota.value,
+      costoConIva,
+      nuevoPrecioConIva,
       usuarioId: auth.usuarioId
     })
     ui.toast(`Se agregaron ${cant} unidades a "${desc}"`, 'success')
@@ -99,10 +162,20 @@ async function registrar() {
           <div class="info">
             <b>{{ selectedProduct.desc }}</b>
             <span>{{ selectedProduct.codigo }} · Existencia actual: {{ selectedProduct.existencia }}</span>
+            <span>Precio de venta actual: {{ fmtUsd(selectedProduct.precio) }}</span>
           </div>
         </div>
         <BaseField label="Cantidad a ingresar">
           <input v-model="cantidad" type="number" min="1" />
+        </BaseField>
+        <BaseField label="Costo con IVA ($) (opcional)">
+          <input
+            :value="costoConIvaDisplay"
+            type="text"
+            inputmode="numeric"
+            @input="onInputCosto"
+            @click="selectAllMoney"
+          />
         </BaseField>
         <BaseField label="Proveedor">
           <input v-model="proveedor" type="text" placeholder="Ej. Distribuidora Central" />
@@ -110,6 +183,26 @@ async function registrar() {
         <BaseField label="Nota (opcional)">
           <input v-model="nota" type="text" placeholder="Ej. Reposición de mercancía" />
         </BaseField>
+
+        <label class="checkbox-row">
+          <input v-model="actualizarPrecio" type="checkbox" :disabled="!selectedProduct" />
+          Actualizar precio de venta de este producto
+        </label>
+        <div v-if="actualizarPrecio" class="field-row">
+          <BaseField label="Nuevo precio con IVA ($)">
+            <input
+              :value="nuevoPrecioConIvaDisplay"
+              type="text"
+              inputmode="numeric"
+              @input="onInputNuevoPrecio"
+              @click="selectAllMoney"
+            />
+          </BaseField>
+          <BaseField label="Precio sin IVA ($)">
+            <input :value="nuevoPrecioSinIvaPreview" type="text" disabled placeholder="0.00" />
+          </BaseField>
+        </div>
+
         <BaseButton variant="primary" block @click="registrar">Registrar entrada</BaseButton>
       </div>
 
@@ -122,13 +215,14 @@ async function registrar() {
                 <th>Fecha</th>
                 <th>Producto</th>
                 <th>Cantidad</th>
+                <th>Costo c/IVA</th>
                 <th>Proveedor</th>
                 <th>Usuario</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="stock.entries.length === 0">
-                <td colspan="5">
+                <td colspan="6">
                   <EmptyState icon="inbox" title="Sin entradas registradas" subtitle="Registra la primera entrada de mercancía" />
                 </td>
               </tr>
@@ -139,6 +233,7 @@ async function registrar() {
                   <span class="mono-sub">{{ e.codigo }}</span>
                 </td>
                 <td class="num qty-in">+{{ e.cantidad }}</td>
+                <td class="num">{{ e.costoConIva != null ? fmtUsd(e.costoConIva) : '—' }}</td>
                 <td>{{ e.proveedor }}</td>
                 <td>{{ e.usuario }}</td>
               </tr>
@@ -229,14 +324,39 @@ async function registrar() {
 .selected-product-box .info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .selected-product-box b {
   font-size: 12.5px;
-  display: block;
 }
 .selected-product-box span {
   font-size: 11px;
   color: var(--text-muted);
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+.checkbox-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.field-row {
+  display: flex;
+  gap: 12px;
+}
+.field-row > * {
+  flex: 1;
+  min-width: 0;
 }
 .table-wrap {
   background: var(--surface);
@@ -248,7 +368,7 @@ table.data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 560px;
+  min-width: 620px;
 }
 .data-table th {
   text-align: left;

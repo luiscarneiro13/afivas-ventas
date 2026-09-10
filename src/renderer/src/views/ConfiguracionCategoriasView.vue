@@ -7,6 +7,7 @@ import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import CategoriaModal from '@renderer/components/productos/CategoriaModal.vue'
+import { exportToExcel, importFromExcel, pickExcelFile } from '@renderer/utils/excel'
 
 const categorias = useCategoriasStore()
 const ui = useUiStore()
@@ -42,6 +43,74 @@ async function confirmDelete() {
   }
   categoriaAEliminar.value = null
 }
+
+const CATEGORIAS_COLUMNS = [{ key: 'nombre', header: 'Nombre', width: 30 }]
+
+async function exportCategorias() {
+  if (categorias.items.length === 0) {
+    ui.toast('No hay categorías para exportar', 'error')
+    return
+  }
+  await exportToExcel({
+    filename: `categorias_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheetName: 'Categorías',
+    columns: CATEGORIAS_COLUMNS,
+    rows: categorias.items
+  })
+  ui.toast('Categorías exportadas', 'info')
+}
+
+async function importCategorias() {
+  const file = await pickExcelFile()
+  if (!file) return
+  let filas
+  try {
+    filas = await importFromExcel(file)
+  } catch (e) {
+    ui.toast('No se pudo leer el archivo: ' + (e?.message || 'archivo inválido'), 'error')
+    return
+  }
+  if (filas.length === 0) {
+    ui.toast('El archivo no tiene filas para importar', 'error')
+    return
+  }
+
+  let creados = 0
+  let omitidos = 0
+  const errores = []
+  for (const fila of filas) {
+    const nombre = String(fila['Nombre'] ?? '').trim()
+
+    if (!nombre) {
+      errores.push('Fila sin nombre: dato obligatorio faltante')
+      continue
+    }
+    const yaExiste = categorias.items.some(
+      (c) => c.nombre.trim().toLowerCase() === nombre.toLowerCase()
+    )
+    if (yaExiste) {
+      omitidos++
+      continue
+    }
+
+    try {
+      await categorias.create({ nombre })
+      creados++
+    } catch (e) {
+      errores.push(`${nombre}: ${e?.message || 'error al guardar'}`)
+    }
+  }
+
+  if (creados > 0) {
+    ui.toast(
+      `Importación completa: ${creados} creada(s)${omitidos ? `, ${omitidos} ya existían` : ''}`,
+      'info'
+    )
+  }
+  if (errores.length) {
+    ui.toast(`${errores.length} fila(s) con errores: ${errores.slice(0, 3).join(' | ')}`, 'error')
+  }
+}
 </script>
 
 <template>
@@ -54,11 +123,11 @@ async function confirmDelete() {
     <div class="view-toolbar">
       <h2 class="vt-title">Categorías de productos</h2>
       <div class="vt-actions">
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="exportCategorias">
           <AppIcon name="excel" :size="15" />
           Exportar
         </BaseButton>
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="importCategorias">
           <AppIcon name="excel" :size="15" />
           Importar
         </BaseButton>

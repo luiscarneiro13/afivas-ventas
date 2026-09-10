@@ -29,6 +29,12 @@ function close() {
 
 const numeroFmt = computed(() => (props.sale ? String(props.sale.numero).padStart(8, '0') : ''))
 
+const numeroFiscalFmt = computed(() => {
+  if (!props.sale?.numeroFacturaFiscal) return 'Pendiente de impresión fiscal'
+  const parsed = parseInt(String(props.sale.numeroFacturaFiscal), 10)
+  return isNaN(parsed) ? String(props.sale.numeroFacturaFiscal) : String(parsed).padStart(8, '0')
+})
+
 const direccionLineas = computed(() =>
   (empresa.value?.direccion || '')
     .split(',')
@@ -115,7 +121,7 @@ const vueltoFmt = computed(() => ((props.sale?.vuelto || 0) * (props.sale?.tasaC
           <div class="dashed"></div>
           <div class="receipt-control">
             <span>MH</span>
-            <span>{{ sale.numeroFacturaFiscal || 'Pendiente de impresión fiscal' }}</span>
+            <span>{{ numeroFiscalFmt }}</span>
           </div>
         </div>
       </div>

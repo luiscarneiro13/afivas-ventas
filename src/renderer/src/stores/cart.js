@@ -52,6 +52,24 @@ export const useCartStore = defineStore('cart', {
     },
     ivaBs() {
       return round2(this.totalBs - this.subtotalBs)
+    },
+    // Vista previa de datos fiscales para el resumen de venta
+    fiscalPreview() {
+      const caja = useCajaStore()
+      const configEmpresa = useConfigEmpresaStore()
+      return {
+        items: this.items.map((x) => ({
+          codigo: x.codigo,
+          desc: x.desc,
+          cantidad: x.cantidad,
+          precioSinIvaBs: round2(x.precioSinIva * caja.tasa),
+          subtotalLineaSinIvaBs: round2(x.precioSinIva * x.cantidad * caja.tasa)
+        })),
+        subtotalSinIvaBs: round2(this.subtotalBs),
+        ivaBs: round2(this.ivaBs),
+        totalBs: round2(this.totalBs),
+        porcentajeIva: configEmpresa.porcentajeIva
+      }
     }
   },
   actions: {

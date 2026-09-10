@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useClientesStore } from '@renderer/stores/clientes'
 import { useUiStore } from '@renderer/stores/ui'
+import { exportToExcel, importFromExcel, pickExcelFile } from '@renderer/utils/excel'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
@@ -49,6 +50,90 @@ async function confirmDelete() {
   }
   clienteAEliminar.value = null
 }
+
+const TIPOS_DOCUMENTO_VALIDOS = ['V', 'E', 'J', 'G', 'P']
+
+const CLIENTES_COLUMNS = [
+  { key: 'cedula', header: 'Cédula/RIF', width: 16 },
+  { key: 'tipo_documento', header: 'Tipo', width: 8 },
+  { key: 'nombre', header: 'Nombre', width: 28 },
+  { key: 'direccion', header: 'Dirección', width: 30 },
+  { key: 'telefono', header: 'Teléfono', width: 16 },
+  { key: 'movil', header: 'Móvil', width: 16 },
+  { key: 'correo', header: 'Correo', width: 24 }
+]
+
+async function exportClientes() {
+  if (clientesVisibles.value.length === 0) {
+    ui.toast('No hay clientes para exportar', 'error')
+    return
+  }
+  await exportToExcel({
+    filename: `clientes_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheetName: 'Clientes',
+    columns: CLIENTES_COLUMNS,
+    rows: clientesVisibles.value
+  })
+  ui.toast('Clientes exportados', 'info')
+}
+
+async function importClientes() {
+  const file = await pickExcelFile()
+  if (!file) return
+  let filas
+  try {
+    filas = await importFromExcel(file)
+  } catch (e) {
+    ui.toast('No se pudo leer el archivo: ' + (e?.message || 'archivo inválido'), 'error')
+    return
+  }
+  if (filas.length === 0) {
+    ui.toast('El archivo no tiene filas para importar', 'error')
+    return
+  }
+
+  let creados = 0
+  let actualizados = 0
+  const errores = []
+  for (const fila of filas) {
+    const cedula = String(fila['Cédula/RIF'] ?? '').trim()
+    const tipoDocumento = String(fila['Tipo'] ?? '').trim().toUpperCase()
+    const nombre = String(fila['Nombre'] ?? '').trim()
+    const direccion = String(fila['Dirección'] ?? '').trim()
+    const telefono = String(fila['Teléfono'] ?? '').trim()
+    const movil = String(fila['Móvil'] ?? '').trim()
+    const correo = String(fila['Correo'] ?? '').trim()
+
+    if (!cedula || !nombre) {
+      errores.push(`Fila con cédula "${cedula || '(vacío)'}": faltan datos obligatorios`)
+      continue
+    }
+    if (!TIPOS_DOCUMENTO_VALIDOS.includes(tipoDocumento)) {
+      errores.push(`Cédula ${cedula}: el tipo de documento "${tipoDocumento || '(vacío)'}" no es válido`)
+      continue
+    }
+
+    try {
+      const existente = clientesVisibles.value.find((c) => c.cedula === cedula)
+      if (existente) {
+        await clientes.update(existente.id, { nombre, direccion, telefono, movil, correo, tipoDocumento })
+        actualizados++
+      } else {
+        await clientes.create({ cedula, tipoDocumento, nombre, direccion, telefono, movil, correo })
+        creados++
+      }
+    } catch (e) {
+      errores.push(`Cédula ${cedula}: ${e?.message || 'error al guardar'}`)
+    }
+  }
+
+  if (creados || actualizados) {
+    ui.toast(`Importación completa: ${creados} creados, ${actualizados} actualizados`, 'info')
+  }
+  if (errores.length) {
+    ui.toast(`${errores.length} fila(s) con errores: ${errores.slice(0, 3).join(' | ')}`, 'error')
+  }
+}
 </script>
 
 <template>
@@ -61,11 +146,11 @@ async function confirmDelete() {
     <div class="view-toolbar">
       <h2 class="vt-title">Clientes</h2>
       <div class="vt-actions">
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="exportClientes">
           <AppIcon name="excel" :size="15" />
           Exportar
         </BaseButton>
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="importClientes">
           <AppIcon name="excel" :size="15" />
           Importar
         </BaseButton>

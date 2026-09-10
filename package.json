@@ -1,6 +1,6 @@
 {
   "name": "afivas-ventas",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "Afivas Ventas — Sistema de punto de venta (Electron + Vue 3)",
   "author": "Afivas",
   "private": true,
@@ -17,6 +17,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "9.6.0",
+    "exceljs": "^4.4.0",
     "knex": "^3.1.0",
     "koffi": "3.1.6",
     "pinia": "^2.2.6",

@@ -17,14 +17,24 @@ export const useStockStore = defineStore('stock', {
           desc: row.producto_descripcion,
           cantidad: row.cantidad,
           proveedor: row.proveedor,
+          nota: row.nota,
+          costoConIva: row.costo_con_iva != null ? Number(row.costo_con_iva) : null,
           usuario: row.usuario_nombre
         }))
       } finally {
         this.loading = false
       }
     },
-    async registrarEntrada({ productoId, cantidad, proveedor, nota, usuarioId }) {
-      await window.api.stockRegistrarEntrada({ productoId, cantidad, proveedor, nota, usuarioId })
+    async registrarEntrada({ productoId, cantidad, proveedor, nota, costoConIva, nuevoPrecioConIva, usuarioId }) {
+      await window.api.stockRegistrarEntrada({
+        productoId,
+        cantidad,
+        proveedor,
+        nota,
+        costoConIva,
+        nuevoPrecioConIva,
+        usuarioId
+      })
       await this.fetchAll()
       const catalog = useCatalogStore()
       await catalog.fetchAll()

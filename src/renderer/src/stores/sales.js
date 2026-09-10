@@ -63,7 +63,11 @@ function mapVenta(venta, items) {
     recibido: Number(venta.recibido),
     vuelto: Number(venta.vuelto),
     tasaCambio: Number(venta.tasa_cambio),
-    numeroFacturaFiscal: venta.numero_factura_fiscal,
+    numeroFacturaFiscal: (() => {
+      if (venta.numero_factura_fiscal == null || venta.numero_factura_fiscal === '') return null
+      const parsed = parseInt(String(venta.numero_factura_fiscal), 10)
+      return isNaN(parsed) ? String(venta.numero_factura_fiscal) : String(parsed).padStart(8, '0')
+    })(),
     impresaFiscalmente: !!venta.impresa_fiscalmente,
     method: metodo
       ? { ...metodo }

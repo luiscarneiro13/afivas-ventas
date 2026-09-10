@@ -203,8 +203,9 @@ function printFacturaFiscal(comPort, venta) {
         }
       }
     }
-    if (venta.correlativoFiscal) {
-      const ref = String(venta.correlativoFiscal).padStart(8, '0')
+    if (venta.correlativoFiscal != null && venta.correlativoFiscal !== '') {
+      const parsedRef = parseInt(String(venta.correlativoFiscal), 10)
+      const ref = isNaN(parsedRef) ? String(venta.correlativoFiscal) : String(parsedRef).padStart(8, '0')
       const r = send(`i0${lineaAdicional++}REF:${ref}`)
       if (!r.okCmd) {
         return {

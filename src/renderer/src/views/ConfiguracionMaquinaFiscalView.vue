@@ -30,7 +30,8 @@ async function cargarCorrelativo() {
   correlativoLoading.value = true
   try {
     const config = await window.api?.configImpresoraGet?.()
-    correlativo.value = config?.correlativo_factura_fiscal ?? 0
+    const val = config?.correlativo_factura_fiscal
+    correlativo.value = val != null ? (parseInt(String(val), 10) || 0) : 0
   } finally {
     correlativoLoading.value = false
   }
@@ -40,10 +41,12 @@ async function guardarCorrelativo() {
   correlativoSaving.value = true
   correlativoSaved.value = false
   try {
+    const parsedVal = parseInt(String(correlativo.value), 10) || 0
     const config = await window.api?.configImpresoraUpdate?.({
-      correlativoFacturaFiscal: Number(correlativo.value) || 0
+      correlativoFacturaFiscal: parsedVal
     })
-    correlativo.value = config?.correlativo_factura_fiscal ?? correlativo.value
+    const val = config?.correlativo_factura_fiscal
+    correlativo.value = val != null ? (parseInt(String(val), 10) || 0) : parsedVal
     correlativoSaved.value = true
   } finally {
     correlativoSaving.value = false

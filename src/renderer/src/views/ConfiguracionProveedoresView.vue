@@ -7,6 +7,7 @@ import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import ProveedorModal from '@renderer/components/productos/ProveedorModal.vue'
+import { exportToExcel, importFromExcel, pickExcelFile } from '@renderer/utils/excel'
 
 const proveedores = useProveedoresStore()
 const ui = useUiStore()
@@ -42,6 +43,85 @@ async function confirmDelete() {
   }
   proveedorAEliminar.value = null
 }
+
+const PROVEEDORES_COLUMNS = [
+  { key: 'nombre', header: 'Nombre', width: 28 },
+  { key: 'rif', header: 'RIF', width: 16 },
+  { key: 'telefono', header: 'Teléfono', width: 16 },
+  { key: 'contacto', header: 'Contacto', width: 20 }
+]
+
+async function exportProveedores() {
+  if (proveedores.items.length === 0) {
+    ui.toast('No hay proveedores para exportar', 'error')
+    return
+  }
+  await exportToExcel({
+    filename: `proveedores_${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheetName: 'Proveedores',
+    columns: PROVEEDORES_COLUMNS,
+    rows: proveedores.items
+  })
+  ui.toast('Proveedores exportados', 'info')
+}
+
+async function importProveedores() {
+  const file = await pickExcelFile()
+  if (!file) return
+  let filas
+  try {
+    filas = await importFromExcel(file)
+  } catch (e) {
+    ui.toast('No se pudo leer el archivo: ' + (e?.message || 'archivo inválido'), 'error')
+    return
+  }
+  if (filas.length === 0) {
+    ui.toast('El archivo no tiene filas para importar', 'error')
+    return
+  }
+
+  let creados = 0
+  let actualizados = 0
+  const errores = []
+  for (const fila of filas) {
+    const nombre = String(fila['Nombre'] ?? '').trim()
+    const rif = String(fila['RIF'] ?? '').trim()
+    const telefono = String(fila['Teléfono'] ?? '').trim()
+    const contacto = String(fila['Contacto'] ?? '').trim()
+
+    if (!nombre) {
+      errores.push(`Fila con RIF "${rif || '(vacío)'}": falta el nombre`)
+      continue
+    }
+
+    let existente = null
+    if (rif) {
+      existente = proveedores.items.find((p) => p.rif === rif)
+    }
+    if (!existente) {
+      existente = proveedores.items.find((p) => p.nombre.trim().toLowerCase() === nombre.toLowerCase())
+    }
+
+    try {
+      if (existente) {
+        await proveedores.update(existente.id, { nombre, rif, telefono, contacto })
+        actualizados++
+      } else {
+        await proveedores.create({ nombre, rif, telefono, contacto })
+        creados++
+      }
+    } catch (e) {
+      errores.push(`${nombre}: ${e?.message || 'error al guardar'}`)
+    }
+  }
+
+  if (creados || actualizados) {
+    ui.toast(`Importación completa: ${creados} creados, ${actualizados} actualizados`, 'info')
+  }
+  if (errores.length) {
+    ui.toast(`${errores.length} fila(s) con errores: ${errores.slice(0, 3).join(' | ')}`, 'error')
+  }
+}
 </script>
 
 <template>
@@ -54,11 +134,11 @@ async function confirmDelete() {
     <div class="view-toolbar">
       <h2 class="vt-title">Proveedores</h2>
       <div class="vt-actions">
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="exportProveedores">
           <AppIcon name="excel" :size="15" />
           Exportar
         </BaseButton>
-        <BaseButton variant="ghost" size="sm">
+        <BaseButton variant="ghost" size="sm" @click="importProveedores">
           <AppIcon name="excel" :size="15" />
           Importar
         </BaseButton>

@@ -15,6 +15,13 @@ async function calcularPrecioSinIva(knex, precioConIva) {
   return Math.round((Number(precioConIva) / (1 + porcentajeIva / 100)) * 100) / 100
 }
 
+// Blindaje: el front ya manda precioConIva con exactamente 2 decimales (ver
+// la máscara de dígitos en ProductoModal.vue), pero se redondea igual acá
+// para no depender de eso como única garantía.
+function round2(n) {
+  return Math.round(Number(n) * 100) / 100
+}
+
 export function makeProductosRepository(knex) {
   return {
     list() {
@@ -40,7 +47,7 @@ export function makeProductosRepository(knex) {
         descripcion,
         categoria_id: categoriaId,
         precio,
-        precio_con_iva: precioConIva,
+        precio_con_iva: round2(precioConIva),
         existencia: existencia ?? 0,
         stock_minimo: stockMinimo ?? 3
       })
@@ -55,7 +62,7 @@ export function makeProductosRepository(knex) {
           descripcion,
           categoria_id: categoriaId,
           precio,
-          precio_con_iva: precioConIva,
+          precio_con_iva: round2(precioConIva),
           existencia: existencia ?? 0,
           stock_minimo: stockMinimo ?? 3,
           updated_at: knex.fn.now()
@@ -72,6 +79,19 @@ export function makeProductosRepository(knex) {
     // operación mayor (ver ventasRepository.registrar / entradasStockRepository.registrar).
     adjustStock(trx, productoId, delta) {
       return trx('productos').where({ id: productoId }).increment('existencia', delta)
+    },
+
+    // Actualiza solo el precio (recalculando precio sin IVA), sin tocar el
+    // resto de los campos del producto. Usado por entradasStockRepository
+    // cuando el usuario elige actualizar el precio de venta al cargar
+    // inventario. Debe llamarse dentro de una transacción.
+    async updatePrecioConIva(trx, productoId, precioConIva) {
+      const precio = await calcularPrecioSinIva(trx, precioConIva)
+      return trx('productos').where({ id: productoId }).update({
+        precio,
+        precio_con_iva: round2(precioConIva),
+        updated_at: trx.fn.now()
+      })
     }
   }
 }

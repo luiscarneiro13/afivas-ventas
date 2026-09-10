@@ -64,6 +64,13 @@ export function makeVentasRepository(knex) {
 
         const numero = await nextNumero(trx)
 
+        const rawFiscal = numeroFacturaFiscal != null ? String(numeroFacturaFiscal) : null
+        let cleanFiscal = null
+        if (rawFiscal != null && rawFiscal !== '') {
+          const parsed = parseInt(rawFiscal, 10)
+          cleanFiscal = isNaN(parsed) ? rawFiscal : String(parsed).padStart(8, '0')
+        }
+
         const [ventaId] = await trx('ventas').insert({
           numero,
           cliente_id: clienteId,
@@ -85,7 +92,7 @@ export function makeVentasRepository(knex) {
           referencia_pago: referenciaPago ?? null,
           banco_id: bancoId ?? null,
           tasa_cambio: tasaCambio,
-          numero_factura_fiscal: numeroFacturaFiscal ?? null
+          numero_factura_fiscal: cleanFiscal
         })
 
         for (const item of items) {
