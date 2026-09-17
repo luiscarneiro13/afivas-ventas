@@ -41,6 +41,38 @@ const fmtNum = (n) =>
 
 const ivaPorcentajeFmt = computed(() => Number(configEmpresa.porcentajeIva).toFixed(2).replace('.', ','))
 
+// La vista previa fiscal imita el ticket real que emite la impresora (Aclas
+// PP9-Plus): descripción partida en líneas de 28 caracteres como lo hace el
+// equipo, sufijo "(G)" del grupo de IVA, línea "Nx precio unitario" solo
+// cuando la cantidad es mayor a 1, y montos SIN IVA (es lo que se le
+// registra a la impresora, ver printFacturaFiscal en main/index.js).
+const FISCAL_DESC_COLS = 28
+const FISCAL_LINE_H = 14
+const FISCAL_ITEM_GAP = 6
+const FISCAL_ITEMS_VISIBLES = 7
+
+function fiscalDescLineas(desc) {
+  const texto = `${desc} (G)`
+  const lineas = []
+  for (let i = 0; i < texto.length; i += FISCAL_DESC_COLS) lineas.push(texto.slice(i, i + FISCAL_DESC_COLS))
+  return lineas
+}
+const fiscalDesc = (desc) => fiscalDescLineas(desc).join('\n')
+
+// El alto máximo es el que ocupan los primeros 7 ítems con las líneas que
+// realmente tiene cada uno; del 8vo en adelante aparece el scroll.
+const fiscalItemsStyle = computed(() => {
+  const items = cart.fiscalPreview.items
+  if (items.length <= FISCAL_ITEMS_VISIBLES) return null
+  const alto = items
+    .slice(0, FISCAL_ITEMS_VISIBLES)
+    .reduce(
+      (a, it) => a + ((it.cantidad > 1 ? 1 : 0) + fiscalDescLineas(it.desc).length) * FISCAL_LINE_H,
+      0
+    )
+  return { maxHeight: `${alto + (FISCAL_ITEMS_VISIBLES - 1) * FISCAL_ITEM_GAP}px` }
+})
+
 const clientQuery = ref('')
 const productQuery = ref('')
 const clientSearchRef = ref(null)
@@ -411,23 +443,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       <div class="vb-right">
         <template v-if="cart.items.length > 0">
           <div class="vb-fiscal-title">Vista previa fiscal</div>
-          <div class="vb-fiscal-items">
+          <div class="vb-fiscal-items" :style="fiscalItemsStyle">
             <div v-for="(item, i) in cart.fiscalPreview.items" :key="i" class="vb-fiscal-item">
-              <div class="vb-fiscal-item-header">
-                <span class="vb-fiscal-codigo">{{ item.codigo }}</span>
-                <span class="vb-fiscal-cant">{{ item.cantidad }}x</span>
+              <div v-if="item.cantidad > 1" class="vb-fiscal-item-qty">
+                {{ item.cantidad }}x {{ fmtBs(item.precioSinIvaBs) }}
               </div>
-              <div class="vb-fiscal-item-desc">{{ item.desc }}</div>
-              <div class="vb-fiscal-item-subtotal">
-                <span>Subtotal s/IVA:</span>
-                <b class="num">{{ fmtBs(item.subtotalLineaSinIvaBs) }}</b>
+              <div class="vb-fiscal-item-linea">
+                <span class="desc">{{ fiscalDesc(item.desc) }}</span>
+                <b class="monto">{{ fmtBs(item.subtotalLineaSinIvaBs) }}</b>
               </div>
             </div>
           </div>
           <div class="vb-fiscal-totals">
-            <div><span>Base imponible</span><b class="num">{{ fmtBs(cart.fiscalPreview.subtotalSinIvaBs) }}</b></div>
-            <div><span>IVA ({{ ivaPorcentajeFmt }}%)</span><b class="num">{{ fmtBs(cart.fiscalPreview.ivaBs) }}</b></div>
-            <div class="tot"><span>Total fiscal</span><b class="num">{{ fmtBs(cart.fiscalPreview.totalBs) }}</b></div>
+            <div><span>BI G ({{ ivaPorcentajeFmt }}%)</span><b>{{ fmtBs(cart.fiscalPreview.subtotalSinIvaBs) }}</b></div>
+            <div><span>IVA G ({{ ivaPorcentajeFmt }}%)</span><b>{{ fmtBs(cart.fiscalPreview.ivaBs) }}</b></div>
+            <div class="tot"><span>TOTAL</span><b>{{ fmtBs(cart.fiscalPreview.totalBs) }}</b></div>
           </div>
         </template>
         
@@ -720,60 +750,53 @@ table.vb-datagrid {
   letter-spacing: 0.05em;
   margin-bottom: 8px;
 }
+/* Bloque monoespaciado que replica el ticket fiscal. El alto por ítem
+   depende de sus líneas reales (ver fiscalItemsStyle en el script): el
+   contenedor se corta en el 7mo ítem y del 8vo en adelante hay scroll. */
 .vb-fiscal-items {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 8px;
   margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--text);
 }
 .vb-fiscal-item {
-  font-size: 10px;
-  margin-bottom: 8px;
+  flex: none;
 }
-.vb-fiscal-item-header {
+.vb-fiscal-item-qty {
+  white-space: nowrap;
+}
+.vb-fiscal-item-linea {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-.vb-fiscal-codigo {
-  font-family: 'Roboto Mono', monospace;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.vb-fiscal-cant {
-  font-weight: 700;
-  color: var(--primary);
-}
-.vb-fiscal-item-desc {
-  font-weight: 500;
-  color: var(--text);
-  margin-bottom: 6px;
-  word-break: break-word;
-}
-.vb-fiscal-item-subtotal {
-  display: flex;
-  justify-content: space-between;
+  align-items: flex-end;
   gap: 8px;
-  margin-bottom: 2px;
 }
-.vb-fiscal-item-subtotal span {
-  color: var(--text-muted);
-  font-size: 9px;
+.vb-fiscal-item-linea .desc {
+  white-space: pre;
 }
-.vb-fiscal-item-subtotal b {
-  font-size: 10px;
-  font-weight: 600;
+.vb-fiscal-item-linea .monto {
+  margin-left: auto;
+  font-weight: 400;
+  white-space: nowrap;
 }
 .vb-fiscal-totals {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   padding-top: 8px;
   border-top: 1px dashed var(--border);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 10px;
+  line-height: 14px;
 }
 .vb-fiscal-totals div {
   display: flex;
@@ -781,26 +804,21 @@ table.vb-datagrid {
   gap: 8px;
 }
 .vb-fiscal-totals span {
-  font-size: 9.5px;
-  color: var(--text-muted);
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 400;
 }
 .vb-fiscal-totals b {
-  font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text);
+  white-space: nowrap;
 }
 .vb-fiscal-totals .tot {
-  margin-top: 2px;
+  margin-top: 6px;
   padding-top: 6px;
+  border-top: 1px dashed var(--border);
 }
-.vb-fiscal-totals .tot span {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
+.vb-fiscal-totals .tot span,
 .vb-fiscal-totals .tot b {
-  font-size: 13px;
-  color: var(--primary);
+  font-weight: 700;
 }
 </style>
