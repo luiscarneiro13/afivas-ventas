@@ -127,6 +127,20 @@ function formatCantidadTfhka(cantidad) {
   return String(Math.round(Number(cantidad) * 1000)).padStart(8, '0')
 }
 
+// Formatea el REF (correlativo de factura) que va en las líneas de
+// información adicional: SIEMPRE 8 dígitos con ceros a la izquierda
+// (563 → "00000563"). Se normaliza con Number+trunc y no con padStart
+// sobre el valor crudo, porque el correlativo puede llegar como "564.0"
+// (columna numérica de SQLite leída como decimal) y en ese caso rellenar
+// a 8 caracteres produce el "000564.0" que salió impreso en el ticket.
+// Devuelve null si el valor no es un entero positivo usable.
+function formatRefTfhka(valor) {
+  if (valor == null || String(valor).trim() === '') return null
+  const n = Math.trunc(Number(String(valor).trim()))
+  if (!Number.isFinite(n) || n <= 0) return null
+  return String(n).padStart(8, '0')
+}
+
 // Formatea el monto entregado como exige el comando `2` (totalización con
 // pago parcial) de TFHKA: 10 dígitos enteros + 2 decimales, sin separador,
 // con ceros a la izquierda (12 caracteres) — mismo esquema que `!` pero con
@@ -203,9 +217,8 @@ function printFacturaFiscal(comPort, venta) {
         }
       }
     }
-    if (venta.correlativoFiscal != null && venta.correlativoFiscal !== '') {
-      const parsedRef = parseInt(String(venta.correlativoFiscal), 10)
-      const ref = isNaN(parsedRef) ? String(venta.correlativoFiscal) : String(parsedRef).padStart(8, '0')
+    const ref = formatRefTfhka(venta.correlativoFiscal)
+    if (ref) {
       const r = send(`i0${lineaAdicional++}REF:${ref}`)
       if (!r.okCmd) {
         return {
@@ -234,10 +247,16 @@ function printFacturaFiscal(comPort, venta) {
     // vuelto, en su posición normal después del total — no una línea de
     // texto aparte. El resto de métodos no maneja vuelto (PagoModal.vue lo
     // deja en 0), así que se totalizan por el monto exacto (comando "1").
+    //
+    // El monto se reconstruye en bolívares desde `recibido` (que se guarda
+    // en dólares) y nunca puede quedar por debajo del total en Bs de la
+    // venta: ese redondeo de ida y vuelta puede perder céntimos y la
+    // impresora dejaría la factura como pago parcial, esperando otro medio
+    // de pago en vez de cerrarla.
+    const recibidoBs = Math.round(Number(venta.recibido || 0) * (Number(venta.tasaCambio) || 1) * 100) / 100
+    const montoTotalizacionBs = Math.max(recibidoBs, Number(venta.totalBs || 0))
     const totalizacion = venta.method?.cash
-      ? send(
-          `2${codigoFiscal}${formatMontoTfhka(Number(venta.recibido || 0) * (Number(venta.tasaCambio) || 1))}`
-        )
+      ? send(`2${codigoFiscal}${formatMontoTfhka(montoTotalizacionBs)}`)
       : send(`1${codigoFiscal}`)
     if (!totalizacion.okCmd) {
       return {
@@ -290,7 +309,11 @@ function createWindow() {
     }
   })
 
+  // Se abre maximizada (ocupando el área útil del monitor, sin tapar la
+  // barra de tareas). width/height de arriba quedan como el tamaño al que
+  // vuelve la ventana si el usuario la restaura.
   mainWindow.on('ready-to-show', () => {
+    mainWindow.maximize()
     mainWindow.show()
   })
 

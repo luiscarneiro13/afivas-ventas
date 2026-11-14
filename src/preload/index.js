@@ -85,7 +85,10 @@ const api = {
   // Integración fiscal
   fiscalReporteZRegistrar: (payload) => ipcRenderer.invoke('fiscal:reporteZ:registrar', payload),
   fiscalReporteZUltimo: () => ipcRenderer.invoke('fiscal:reporteZ:ultimo'),
-  fiscalReporteZHistorial: (filtros) => ipcRenderer.invoke('fiscal:reporteZ:historial', filtros)
+  fiscalReporteZHistorial: (filtros) => ipcRenderer.invoke('fiscal:reporteZ:historial', filtros),
+
+  // Reportes PDF
+  reportePdfGenerar: (payload) => ipcRenderer.invoke('reportes:pdf:generar', payload)
 }
 
 if (process.contextIsolated) {

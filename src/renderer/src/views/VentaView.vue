@@ -10,7 +10,7 @@ import { useCajaStore } from '@renderer/stores/caja'
 import { useAuthStore } from '@renderer/stores/auth'
 import { useUiStore } from '@renderer/stores/ui'
 import { useConfigEmpresaStore } from '@renderer/stores/configEmpresa'
-import { fmtBs } from '@renderer/utils/format'
+import { fmtBs, round2 } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
@@ -47,9 +47,6 @@ const ivaPorcentajeFmt = computed(() => Number(configEmpresa.porcentajeIva).toFi
 // cuando la cantidad es mayor a 1, y montos SIN IVA (es lo que se le
 // registra a la impresora, ver printFacturaFiscal en main/index.js).
 const FISCAL_DESC_COLS = 28
-const FISCAL_LINE_H = 14
-const FISCAL_ITEM_GAP = 6
-const FISCAL_ITEMS_VISIBLES = 7
 
 function fiscalDescLineas(desc) {
   const texto = `${desc} (G)`
@@ -58,20 +55,6 @@ function fiscalDescLineas(desc) {
   return lineas
 }
 const fiscalDesc = (desc) => fiscalDescLineas(desc).join('\n')
-
-// El alto máximo es el que ocupan los primeros 7 ítems con las líneas que
-// realmente tiene cada uno; del 8vo en adelante aparece el scroll.
-const fiscalItemsStyle = computed(() => {
-  const items = cart.fiscalPreview.items
-  if (items.length <= FISCAL_ITEMS_VISIBLES) return null
-  const alto = items
-    .slice(0, FISCAL_ITEMS_VISIBLES)
-    .reduce(
-      (a, it) => a + ((it.cantidad > 1 ? 1 : 0) + fiscalDescLineas(it.desc).length) * FISCAL_LINE_H,
-      0
-    )
-  return { maxHeight: `${alto + (FISCAL_ITEMS_VISIBLES - 1) * FISCAL_ITEM_GAP}px` }
-})
 
 const clientQuery = ref('')
 const productQuery = ref('')
@@ -83,6 +66,12 @@ const fiscalPrintError = ref(null)
 
 const clientItems = computed(() => clientsStore.search(clientQuery.value))
 const productItems = computed(() => catalog.search(productQuery.value, 8))
+
+// Precio de venta en Bs derivado del precio SIN IVA, igual que en el
+// carrito (ver itemsConBs en stores/cart.js), para que lo que se ve al
+// buscar coincida con lo que termina cobrándose.
+const precioVentaBs = (p) =>
+  round2(round2(p.precioSinIva * caja.tasa) * (1 + configEmpresa.porcentajeIva / 100))
 
 function estadoProducto(p) {
   if (p.existencia === 0) return 'Agotado'
@@ -367,7 +356,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
             >
               <template #item="{ item }">
                 <b>{{ item.desc }}</b>
-                <span>{{ item.codigo }} · {{ fmtBs(item.precio * caja.tasa) }} · {{ estadoProducto(item) }}</span>
+                <span>{{ item.codigo }} · {{ fmtBs(precioVentaBs(item)) }} · {{ estadoProducto(item) }}</span>
               </template>
             </SearchDropdown>
           </div>
@@ -410,7 +399,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                   />
                 </td>
               </tr>
-              <tr v-for="(item, i) in cart.items" v-else :key="item.codigo">
+              <tr v-for="(item, i) in cart.itemsConBs" v-else :key="item.codigo">
                 <td class="num">{{ i + 1 }}</td>
                 <td class="num">{{ item.codigo }}</td>
                 <td>{{ item.desc }}</td>
@@ -427,8 +416,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                     @click="selectQtyContent"
                   />
                 </td>
-                <td class="num">{{ fmtNum(item.precio * caja.tasa) }}</td>
-                <td class="num">{{ fmtNum(item.precio * item.cantidad * caja.tasa) }}</td>
+                <td class="num">{{ fmtNum(item.precioBs) }}</td>
+                <td class="num">{{ fmtNum(item.subtotalLineaBs) }}</td>
                 <td>
                   <button class="vb-row-del" title="Quitar" @click="cart.removeProduct(item.codigo)">
                     <AppIcon name="x" :size="13" />
@@ -443,7 +432,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       <div class="vb-right">
         <template v-if="cart.items.length > 0">
           <div class="vb-fiscal-title">Vista previa fiscal</div>
-          <div class="vb-fiscal-items" :style="fiscalItemsStyle">
+          <div class="vb-fiscal-items">
             <div v-for="(item, i) in cart.fiscalPreview.items" :key="i" class="vb-fiscal-item">
               <div v-if="item.cantidad > 1" class="vb-fiscal-item-qty">
                 {{ item.cantidad }}x {{ fmtBs(item.precioSinIvaBs) }}
@@ -457,7 +446,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
           <div class="vb-fiscal-totals">
             <div><span>BI G ({{ ivaPorcentajeFmt }}%)</span><b>{{ fmtBs(cart.fiscalPreview.subtotalSinIvaBs) }}</b></div>
             <div><span>IVA G ({{ ivaPorcentajeFmt }}%)</span><b>{{ fmtBs(cart.fiscalPreview.ivaBs) }}</b></div>
-            <div class="tot"><span>TOTAL</span><b>{{ fmtBs(cart.fiscalPreview.totalBs) }}</b></div>
           </div>
         </template>
         
@@ -502,18 +490,24 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </template>
 
 <style scoped>
+/* La vista ocupa exactamente el alto disponible y no scrollea como página:
+   el scroll vive dentro de la grilla de productos y de la vista previa
+   fiscal. Por eso la cadena completa lleva min-height:0 (si no, cada
+   contenedor crece con su contenido y nunca se activa el overflow). */
 .view-content {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 22px 26px;
   display: flex;
 }
 .vb-shell {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   width: 100%;
+  min-height: 0;
 }
 .vb-window {
   grid-column: span 9;
@@ -524,6 +518,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 .vb-right {
@@ -536,6 +531,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   flex-direction: column;
   padding: 20px;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 .vb-row {
   display: grid;
@@ -716,7 +713,9 @@ table.vb-datagrid {
 
 .checkout-btn {
   width: 100%;
-  margin-top: 16px;
+  /* margin-top:auto lo mantiene pegado al fondo del panel derecho aunque la
+     vista previa fiscal ocupe poco alto. */
+  margin-top: auto;
   padding: 14px;
   border-radius: var(--radius-sm);
   background: var(--primary);
@@ -750,11 +749,11 @@ table.vb-datagrid {
   letter-spacing: 0.05em;
   margin-bottom: 8px;
 }
-/* Bloque monoespaciado que replica el ticket fiscal. El alto por ítem
-   depende de sus líneas reales (ver fiscalItemsStyle en el script): el
-   contenedor se corta en el 7mo ítem y del 8vo en adelante hay scroll. */
+/* Bloque monoespaciado que replica el ticket fiscal. Ocupa todo el alto
+   libre entre el título y el bloque BI/IVA (que queda fijo justo encima del
+   botón Cobrar): el scroll solo aparece cuando los productos no caben. */
 .vb-fiscal-items {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -771,6 +770,10 @@ table.vb-datagrid {
 }
 .vb-fiscal-item {
   flex: none;
+}
+.vb-fiscal-item + .vb-fiscal-item {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
 }
 .vb-fiscal-item-qty {
   white-space: nowrap;
@@ -791,7 +794,9 @@ table.vb-datagrid {
 .vb-fiscal-totals {
   display: flex;
   flex-direction: column;
+  flex: none;
   gap: 2px;
+  margin-bottom: 14px;
   padding-top: 8px;
   border-top: 1px dashed var(--border);
   font-family: 'Roboto Mono', monospace;
@@ -811,14 +816,5 @@ table.vb-datagrid {
   font-weight: 400;
   color: var(--text);
   white-space: nowrap;
-}
-.vb-fiscal-totals .tot {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
-}
-.vb-fiscal-totals .tot span,
-.vb-fiscal-totals .tot b {
-  font-weight: 700;
 }
 </style>

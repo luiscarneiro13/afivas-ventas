@@ -4,11 +4,13 @@ import { useSalesStore } from '@renderer/stores/sales'
 import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 import { useUiStore } from '@renderer/stores/ui'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
+import BaseButton from '@renderer/components/ui/BaseButton.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import FacturaModal from '@renderer/components/shared/FacturaModal.vue'
-import { fmtUsd, fmtDateTime } from '@renderer/utils/format'
+import { fmtUsd, fmtBs, fmtDate, fmtDateTime } from '@renderer/utils/format'
+import { exportToPdf } from '@renderer/utils/pdf'
 
 const sales = useSalesStore()
 const metodosPago = useMetodosPagoStore()
@@ -52,6 +54,72 @@ function askAnular(venta) {
   ventaAAnular.value = venta
   confirmOpen.value = true
 }
+
+// Exporta un reporte estilo cierre Z (resumen + detalle) con las ventas
+// que están visibles según los filtros aplicados. Los totales solo cuentan
+// las completadas — una anulada no vendió nada.
+async function exportVentasPdf() {
+  const ventas = filteredSales.value
+  if (!ventas.length) {
+    ui.toast('No hay ventas para exportar', 'error')
+    return
+  }
+  const completadas = ventas.filter((v) => v.estado !== 'anulada')
+  const sumar = (campo) => completadas.reduce((a, v) => a + v[campo], 0)
+
+  const porMetodo = new Map()
+  for (const v of completadas) {
+    const actual = porMetodo.get(v.method.label) || 0
+    porMetodo.set(v.method.label, actual + v.total)
+  }
+
+  const resumen = [
+    { label: 'Facturas emitidas', valor: String(ventas.length) },
+    { label: 'Facturas completadas', valor: String(completadas.length) },
+    { label: 'Facturas anuladas', valor: String(ventas.length - completadas.length) },
+    { label: 'Total vendido ($)', valor: fmtUsd(sumar('total')) },
+    { label: 'Impuesto IVA ($)', valor: fmtUsd(sumar('iva')) },
+    { label: 'Total vendido (Bs)', valor: fmtBs(sumar('totalBs')) },
+    ...[...porMetodo.entries()].map(([label, usd]) => ({
+      label: `Cobros · ${label}`,
+      valor: fmtUsd(usd)
+    }))
+  ]
+
+  const filtros = []
+  if (desde.value || hasta.value) {
+    filtros.push(`Período: ${desde.value ? fmtDate(`${desde.value}T00:00:00`) : '…'} – ${hasta.value ? fmtDate(`${hasta.value}T00:00:00`) : '…'}`)
+  }
+  if (metodoFilter.value !== 'Todos') {
+    const m = metodosPago.items.find((x) => x.id === metodoFilter.value)
+    filtros.push(`Método: ${m?.label || metodoFilter.value}`)
+  }
+  if (estadoFilter.value !== 'Todos') filtros.push(`Estado: ${estadoFilter.value}`)
+  if (search.value.trim()) filtros.push(`Búsqueda: "${search.value.trim()}"`)
+
+  try {
+    await exportToPdf({
+      filename: `reporte_ventas_${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Reporte de ventas (cierre Z)',
+      subtitle: filtros.length ? `Filtros: ${filtros.join(' · ')}` : 'Sin filtros — todas las ventas',
+      resumen,
+      columns: [
+        { key: 'numero', header: 'Factura', format: (v) => `#${String(v.numero).padStart(8, '0')}` },
+        { key: 'fecha', header: 'Fecha', format: (v) => fmtDateTime(v.fecha) },
+        { key: 'cliente', header: 'Cliente', format: (v) => v.cliente.nombre },
+        { key: 'cajero', header: 'Cajero' },
+        { key: 'metodo', header: 'Método', format: (v) => v.method.label },
+        { key: 'estado', header: 'Estado', format: (v) => (v.estado === 'anulada' ? 'Anulada' : 'Completada') },
+        { key: 'total', header: 'Total ($)', format: (v) => fmtUsd(v.total) },
+        { key: 'totalBs', header: 'Total (Bs)', format: (v) => fmtBs(v.totalBs) }
+      ],
+      rows: ventas
+    })
+    ui.toast('Reporte de ventas exportado a PDF', 'info')
+  } catch (err) {
+    ui.toast(err.message || 'No se pudo generar el PDF', 'error')
+  }
+}
 async function confirmAnular() {
   if (!ventaAAnular.value) return
   try {
@@ -73,6 +141,12 @@ async function confirmAnular() {
 
     <div class="view-toolbar">
       <h2 class="vt-title">Ventas</h2>
+      <div class="vt-actions">
+        <BaseButton variant="ghost" size="sm" @click="exportVentasPdf">
+          <AppIcon name="pdf" :size="15" />
+          Exportar PDF
+        </BaseButton>
+      </div>
     </div>
 
     <div class="filters-row">
@@ -203,6 +277,11 @@ async function confirmAnular() {
 .vt-title {
   font-size: 16px;
   font-weight: 700;
+}
+.vt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .filters-row {
   display: flex;

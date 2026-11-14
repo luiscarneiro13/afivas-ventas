@@ -64,12 +64,12 @@ export function makeVentasRepository(knex) {
 
         const numero = await nextNumero(trx)
 
-        const rawFiscal = numeroFacturaFiscal != null ? String(numeroFacturaFiscal) : null
-        let cleanFiscal = null
-        if (rawFiscal != null && rawFiscal !== '') {
-          const parsed = parseInt(rawFiscal, 10)
-          cleanFiscal = isNaN(parsed) ? rawFiscal : String(parsed).padStart(8, '0')
-        }
+        // El REF se guarda ya normalizado: 8 dígitos con ceros a la
+        // izquierda (564 → "00000564"). Se trunca vía Number para que un
+        // valor decimal ("564.0") no termine guardado como "000564.0".
+        const nFiscal = Math.trunc(Number(String(numeroFacturaFiscal ?? '').trim()))
+        const cleanFiscal =
+          Number.isFinite(nFiscal) && nFiscal > 0 ? String(nFiscal).padStart(8, '0') : null
 
         const [ventaId] = await trx('ventas').insert({
           numero,

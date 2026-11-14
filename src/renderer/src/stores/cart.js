@@ -12,62 +12,82 @@ export const useCartStore = defineStore('cart', {
   }),
   getters: {
     count: (state) => state.items.reduce((a, x) => a + x.cantidad, 0),
-    // x.precio ya es el precio CON IVA (el de venta) — total es simplemente
-    // la suma de cada línea. subtotal/iva se desglosan hacia atrás a partir
-    // de ese total (no se suman hacia adelante): con IVA incluido en el
-    // precio, el subtotal "sin IVA" es una consecuencia del total, no al
-    // revés.
-    total: (state) => round2(state.items.reduce((a, x) => a + x.precio * x.cantidad, 0)),
-    subtotal() {
+    // Toda la venta se calcula en cadena a partir de un único monto base:
+    // el precio unitario en dólares SIN IVA (x.precioSinIva, campo interno
+    // del carrito — no se muestra en la grilla). Cada paso usa el resultado
+    // ya redondeado del anterior, que es como lo hace la impresora fiscal:
+    //
+    //   precioSinIva ($) × tasa        → precioSinIvaBs        (unitario Bs)
+    //   precioSinIvaBs   × cantidad    → subtotalLineaSinIvaBs (línea Bs)
+    //   Σ subtotalLineaSinIvaBs        → BI (subtotalBs)
+    //   BI × %IVA                      → ivaBs
+    //
+    // Los montos CON IVA (precioBs/subtotalLineaBs, los que ve el cliente
+    // en la grilla) cuelgan de esa misma cadena: si se derivaran de
+    // x.precio en dólares no cuadrarían, porque precio_con_iva está
+    // redondeado a 2 decimales en USD y esas milésimas, multiplicadas por
+    // la tasa, se vuelven bolívares de diferencia contra el ticket.
+    itemsConBs() {
+      const caja = useCajaStore()
       const configEmpresa = useConfigEmpresaStore()
-      return round2(this.total / (1 + configEmpresa.porcentajeIva / 100))
+      const factorIva = 1 + configEmpresa.porcentajeIva / 100
+      return this.items.map((x) => {
+        const precioSinIvaBs = round2(x.precioSinIva * caja.tasa)
+        const precioBs = round2(precioSinIvaBs * factorIva)
+        return {
+          ...x,
+          precioSinIvaBs,
+          subtotalLineaSinIvaBs: round2(precioSinIvaBs * x.cantidad),
+          precioBs,
+          subtotalLineaBs: round2(precioBs * x.cantidad)
+        }
+      })
+    },
+    // Los totales en Bs se arman igual que en el ticket fiscal, hacia
+    // adelante y no hacia atrás desde el total: la base imponible es la
+    // SUMA de las líneas SIN IVA (las mismas que se ven en la vista previa
+    // y que recibe la impresora), el IVA es el porcentaje sobre esa base y
+    // el total es la suma de ambos. Así lo que se cobra cuadra al céntimo
+    // con la factura fiscal.
+    subtotalBs() {
+      return round2(this.itemsConBs.reduce((a, x) => a + x.subtotalLineaSinIvaBs, 0))
+    },
+    ivaBs() {
+      const configEmpresa = useConfigEmpresaStore()
+      return round2((this.subtotalBs * configEmpresa.porcentajeIva) / 100)
+    },
+    totalBs() {
+      return round2(this.subtotalBs + this.ivaBs)
+    },
+    // Bs es la moneda de cobro y de la factura; los montos en dólares (que
+    // son la base que se guarda en la BD) se derivan de ellos con la tasa
+    // vigente para que no se despeguen del total cobrado.
+    subtotal() {
+      const caja = useCajaStore()
+      return round2(this.subtotalBs / (caja.tasa || 1))
+    },
+    total() {
+      const caja = useCajaStore()
+      return round2(this.totalBs / (caja.tasa || 1))
     },
     iva() {
       return round2(this.total - this.subtotal)
     },
-    // Los productos se cargan y almacenan en dólares; los bolívares siempre
-    // se calculan al vuelo con la tasa vigente, nunca se guardan como base.
-    // itemsConBs agrega precioBs/subtotalLineaBs (CON IVA, cada uno ya
-    // redondeado a 2 decimales — el mismo número que se ve por fila en la
-    // grilla) y precioSinIvaBs (SIN IVA: es lo que se le manda a la
-    // impresora fiscal, que calcula el IVA ella misma según su propia tasa
-    // programada — nunca se le debe mandar un precio que ya lo incluya).
-    itemsConBs() {
-      const caja = useCajaStore()
-      return this.items.map((x) => ({
-        ...x,
-        precioBs: round2(x.precio * caja.tasa),
-        subtotalLineaBs: round2(x.precio * x.cantidad * caja.tasa),
-        precioSinIvaBs: round2(x.precioSinIva * caja.tasa)
-      }))
-    },
-    // totalBs es la suma de las líneas ya redondeadas (con IVA); subtotalBs/
-    // ivaBs se desglosan hacia atrás a partir de él, igual que en USD.
-    totalBs() {
-      return round2(this.itemsConBs.reduce((a, x) => a + x.subtotalLineaBs, 0))
-    },
-    subtotalBs() {
-      const configEmpresa = useConfigEmpresaStore()
-      return round2(this.totalBs / (1 + configEmpresa.porcentajeIva / 100))
-    },
-    ivaBs() {
-      return round2(this.totalBs - this.subtotalBs)
-    },
-    // Vista previa de datos fiscales para el resumen de venta
+    // Vista previa de datos fiscales para el resumen de venta: reproduce
+    // línea por línea lo que va a imprimir la máquina.
     fiscalPreview() {
-      const caja = useCajaStore()
       const configEmpresa = useConfigEmpresaStore()
       return {
-        items: this.items.map((x) => ({
+        items: this.itemsConBs.map((x) => ({
           codigo: x.codigo,
           desc: x.desc,
           cantidad: x.cantidad,
-          precioSinIvaBs: round2(x.precioSinIva * caja.tasa),
-          subtotalLineaSinIvaBs: round2(x.precioSinIva * x.cantidad * caja.tasa)
+          precioSinIvaBs: x.precioSinIvaBs,
+          subtotalLineaSinIvaBs: x.subtotalLineaSinIvaBs
         })),
-        subtotalSinIvaBs: round2(this.subtotalBs),
-        ivaBs: round2(this.ivaBs),
-        totalBs: round2(this.totalBs),
+        subtotalSinIvaBs: this.subtotalBs,
+        ivaBs: this.ivaBs,
+        totalBs: this.totalBs,
         porcentajeIva: configEmpresa.porcentajeIva
       }
     }

@@ -10,9 +10,11 @@ import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
 import EmptyState from '@renderer/components/ui/EmptyState.vue'
 import ConfirmModal from '@renderer/components/ui/ConfirmModal.vue'
 import ProductoModal from '@renderer/components/productos/ProductoModal.vue'
+import ExportPdfModal from '@renderer/components/ui/ExportPdfModal.vue'
 import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import { fmtUsd, fmtBs } from '@renderer/utils/format'
 import { exportToExcel, importFromExcel, pickExcelFile } from '@renderer/utils/excel'
+import { exportToPdf } from '@renderer/utils/pdf'
 
 const catalog = useCatalogStore()
 const caja = useCajaStore()
@@ -120,6 +122,47 @@ async function exportProductos() {
   ui.toast('Productos exportados', 'info')
 }
 
+const pdfModalOpen = ref(false)
+
+const PDF_FIELDS = [
+  { key: 'codigo', label: 'Código' },
+  { key: 'desc', label: 'Nombre' },
+  { key: 'precio', label: 'Precio ($)' },
+  { key: 'precioSinIva', label: 'Precio sin IVA ($)' },
+  { key: 'precioBs', label: 'Precio (Bs)' },
+  { key: 'cat', label: 'Categoría' },
+  { key: 'existencia', label: 'Existencia' },
+  { key: 'stockMinimo', label: 'Stock mínimo' }
+]
+const PDF_DEFAULTS = ['codigo', 'desc', 'precio']
+
+// Formatos especiales por campo del reporte PDF (los demás van tal cual).
+const PDF_FORMATS = {
+  precio: (p) => fmtUsd(p.precio),
+  precioSinIva: (p) => fmtUsd(p.precioSinIva),
+  precioBs: (p) => fmtBs(p.precio * caja.tasa),
+  cat: (p) => p.cat || '—'
+}
+
+async function exportProductosPdf(campos) {
+  if (filteredProducts.value.length === 0) {
+    ui.toast('No hay productos para exportar', 'error')
+    return
+  }
+  const columns = campos.map((f) => ({ key: f.key, header: f.label, format: PDF_FORMATS[f.key] }))
+  try {
+    await exportToPdf({
+      filename: `productos_${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Inventario de productos',
+      columns,
+      rows: filteredProducts.value
+    })
+    ui.toast('Productos exportados a PDF', 'info')
+  } catch (err) {
+    ui.toast(err.message || 'No se pudo generar el PDF', 'error')
+  }
+}
+
 async function importProductos() {
   const file = await pickExcelFile()
   if (!file) return
@@ -221,6 +264,10 @@ async function importProductos() {
           <AppIcon name="excel" :size="15" />
           Exportar
         </BaseButton>
+        <BaseButton variant="ghost" size="sm" @click="pdfModalOpen = true">
+          <AppIcon name="pdf" :size="15" />
+          Exportar PDF
+        </BaseButton>
         <BaseButton variant="ghost" size="sm" @click="importProductos">
           <AppIcon name="excel" :size="15" />
           Importar
@@ -275,6 +322,13 @@ async function importProductos() {
     </div>
 
     <ProductoModal v-model="modalOpen" :producto="productoEditando" />
+    <ExportPdfModal
+      v-model="pdfModalOpen"
+      title="Exportar inventario a PDF"
+      :fields="PDF_FIELDS"
+      :defaults="PDF_DEFAULTS"
+      @export="exportProductosPdf"
+    />
     <ConfirmModal
       v-model="confirmOpen"
       :title="productoAEliminar ? `¿Eliminar &quot;${productoAEliminar.desc}&quot;?` : '¿Eliminar producto?'"

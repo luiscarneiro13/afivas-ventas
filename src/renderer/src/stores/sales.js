@@ -63,10 +63,12 @@ function mapVenta(venta, items) {
     recibido: Number(venta.recibido),
     vuelto: Number(venta.vuelto),
     tasaCambio: Number(venta.tasa_cambio),
+    // Siempre 8 dígitos con ceros a la izquierda. Se trunca vía Number
+    // (no padStart sobre el valor crudo) porque ventas viejas pueden tener
+    // guardado "564.0" y rellenar eso daría "000564.0".
     numeroFacturaFiscal: (() => {
-      if (venta.numero_factura_fiscal == null || venta.numero_factura_fiscal === '') return null
-      const parsed = parseInt(String(venta.numero_factura_fiscal), 10)
-      return isNaN(parsed) ? String(venta.numero_factura_fiscal) : String(parsed).padStart(8, '0')
+      const n = Math.trunc(Number(String(venta.numero_factura_fiscal ?? '').trim()))
+      return Number.isFinite(n) && n > 0 ? String(n).padStart(8, '0') : null
     })(),
     impresaFiscalmente: !!venta.impresa_fiscalmente,
     method: metodo

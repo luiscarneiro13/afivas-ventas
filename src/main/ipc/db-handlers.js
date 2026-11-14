@@ -1,5 +1,63 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { makeRepositories } from '../db/repositories/index.js'
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// Genera el PDF de un reporte tabular: renderiza una página HTML en una
+// ventana oculta y la convierte con webContents.printToPDF, así no hace
+// falta ninguna librería de PDF (la app debe seguir compilando offline
+// para Windows 32-bit). Devuelve el buffer crudo; el renderer lo guarda
+// como blob, igual que hace la exportación a Excel.
+async function generarReportePdf(empresa, { titulo, subtitulo, resumen, headers, rows }) {
+  const generado = new Date().toLocaleString('es-VE')
+  const bloqueResumen = resumen?.length
+    ? `<table class="resumen"><tbody>${resumen
+        .map((r) => `<tr><td>${escHtml(r.label)}</td><td class="valor">${escHtml(r.valor)}</td></tr>`)
+        .join('')}</tbody></table>`
+    : ''
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page { size: A4; margin: 14mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1c1c28; font-size: 11px; }
+    .empresa { font-size: 15px; font-weight: 700; }
+    .empresa-sub { color: #555; margin-top: 2px; }
+    h1 { font-size: 13px; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+    .subtitulo { color: #555; font-size: 10px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #5d3fd3; color: #fff; text-align: left; padding: 6px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; }
+    td { padding: 5px 8px; border-bottom: 1px solid #e2e2ea; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f6fb; }
+    table.resumen { margin-bottom: 14px; }
+    table.resumen td:first-child { width: 55%; font-weight: 700; }
+    table.resumen td.valor { text-align: right; font-family: 'Courier New', monospace; }
+    table.resumen tr:nth-child(even) td { background: #f7f6fb; }
+    .detalle-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin: 6px 0 6px; }
+    .footer { margin-top: 12px; color: #888; font-size: 9.5px; }
+  </style></head><body>
+    <div class="empresa">${escHtml(empresa?.razon_social || '')}</div>
+    <div class="empresa-sub">${[empresa?.rif, empresa?.direccion, empresa?.telefono].filter(Boolean).map(escHtml).join(' · ')}</div>
+    <h1>${escHtml(titulo)}</h1>
+    ${subtitulo ? `<div class="subtitulo">${escHtml(subtitulo)}</div>` : ''}
+    ${bloqueResumen}
+    ${resumen?.length ? '<div class="detalle-titulo">Detalle</div>' : ''}
+    <table><thead><tr>${headers.map((h) => `<th>${escHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${escHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <div class="footer">Generado por Afivas Ventas · ${escHtml(generado)}</div>
+  </body></html>`
+
+  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+  try {
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    return await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' })
+  } finally {
+    win.destroy()
+  }
+}
 
 // Registra los canales IPC de acceso a datos. Sigue el mismo patrón que
 // 'ports:scan'/'tfhka:*' en src/main/index.js: un ipcMain.handle por
@@ -80,4 +138,9 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('fiscal:reporteZ:registrar', (_e, payload) => repos.cierresFiscales.registrar(payload))
   ipcMain.handle('fiscal:reporteZ:ultimo', () => repos.cierresFiscales.ultimo())
   ipcMain.handle('fiscal:reporteZ:historial', (_e, filtros) => repos.cierresFiscales.historial(filtros))
+
+  // Reportes PDF (descargos de inventario, etc.)
+  ipcMain.handle('reportes:pdf:generar', async (_e, payload) =>
+    generarReportePdf(await repos.configEmpresa.get(), payload)
+  )
 }
