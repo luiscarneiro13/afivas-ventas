@@ -12,36 +12,53 @@ export const useCartStore = defineStore('cart', {
   }),
   getters: {
     count: (state) => state.items.reduce((a, x) => a + x.cantidad, 0),
-    // Toda la venta se calcula en cadena a partir de un único monto base:
-    // el precio unitario en dólares SIN IVA (x.precioSinIva, campo interno
-    // del carrito — no se muestra en la grilla). Cada paso usa el resultado
-    // ya redondeado del anterior, que es como lo hace la impresora fiscal:
+    // Base fiscal de cada línea (montos SIN IVA). Es exactamente lo que
+    // recibe la impresora fiscal, así que es la fuente de verdad de todo el
+    // cálculo:
     //
-    //   precioSinIva ($) × tasa        → precioSinIvaBs        (unitario Bs)
-    //   precioSinIvaBs   × cantidad    → subtotalLineaSinIvaBs (línea Bs)
-    //   Σ subtotalLineaSinIvaBs        → BI (subtotalBs)
-    //   BI × %IVA                      → ivaBs
+    //   precioSinIva ($) × tasa      → precioSinIvaBs        (unitario Bs)
+    //   precioSinIvaBs   × cantidad  → subtotalLineaSinIvaBs (línea Bs)
     //
     // Los montos CON IVA (precioBs/subtotalLineaBs, los que ve el cliente
-    // en la grilla) cuelgan de esa misma cadena: si se derivaran de
-    // x.precio en dólares no cuadrarían, porque precio_con_iva está
-    // redondeado a 2 decimales en USD y esas milésimas, multiplicadas por
-    // la tasa, se vuelven bolívares de diferencia contra el ticket.
-    itemsConBs() {
+    // en la grilla) se derivan de aquí, no de x.precio en dólares: ese
+    // precio está redondeado a 2 decimales en USD y, multiplicado por la
+    // tasa, produce bolívares de diferencia contra el ticket.
+    lineasBase() {
       const caja = useCajaStore()
-      const configEmpresa = useConfigEmpresaStore()
-      const factorIva = 1 + configEmpresa.porcentajeIva / 100
       return this.items.map((x) => {
         const precioSinIvaBs = round2(x.precioSinIva * caja.tasa)
-        const precioBs = round2(precioSinIvaBs * factorIva)
         return {
           ...x,
           precioSinIvaBs,
-          subtotalLineaSinIvaBs: round2(precioSinIvaBs * x.cantidad),
-          precioBs,
-          subtotalLineaBs: round2(precioBs * x.cantidad)
+          subtotalLineaSinIvaBs: round2(precioSinIvaBs * x.cantidad)
         }
       })
+    },
+    itemsConBs() {
+      const configEmpresa = useConfigEmpresaStore()
+      const factorIva = 1 + configEmpresa.porcentajeIva / 100
+      const lineas = this.lineasBase.map((x) => ({
+        ...x,
+        precioBs: round2(x.precioSinIvaBs * factorIva),
+        // El monto de la línea con IVA NO es precioBs × cantidad: se aplica
+        // el IVA sobre la base de la línea, igual que el ticket fiscal. Si
+        // se multiplicara el unitario ya redondeado con IVA, 2 × 2.054,85
+        // daría 4.109,70 mientras el ticket imprime 4.109,69 (BI 3.542,84
+        // + IVA 566,85). Ese céntimo es el que hacía que la grilla no
+        // cuadrara con el total a cobrar.
+        subtotalLineaBs: round2(x.subtotalLineaSinIvaBs * factorIva)
+      }))
+      // El redondeo línea a línea puede dejar la suma de la grilla a algún
+      // céntimo del total real (BI total × (1 + IVA)), que es lo que cobra
+      // el ticket. El residuo se ajusta en la última línea para que la
+      // columna "Subtotal (Bs)" sume exactamente cart.totalBs.
+      const sumaLíneas = round2(lineas.reduce((a, x) => a + x.subtotalLineaBs, 0))
+      const residuo = round2(this.totalBs - sumaLíneas)
+      if (residuo !== 0 && lineas.length > 0) {
+        const ultima = lineas[lineas.length - 1]
+        ultima.subtotalLineaBs = round2(ultima.subtotalLineaBs + residuo)
+      }
+      return lineas
     },
     // Los totales en Bs se arman igual que en el ticket fiscal, hacia
     // adelante y no hacia atrás desde el total: la base imponible es la
@@ -50,7 +67,7 @@ export const useCartStore = defineStore('cart', {
     // el total es la suma de ambos. Así lo que se cobra cuadra al céntimo
     // con la factura fiscal.
     subtotalBs() {
-      return round2(this.itemsConBs.reduce((a, x) => a + x.subtotalLineaSinIvaBs, 0))
+      return round2(this.lineasBase.reduce((a, x) => a + x.subtotalLineaSinIvaBs, 0))
     },
     ivaBs() {
       const configEmpresa = useConfigEmpresaStore()

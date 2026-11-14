@@ -1,6 +1,6 @@
 {
   "name": "afivas-ventas",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "description": "Afivas Ventas — Sistema de punto de venta (Electron + Vue 3)",
   "author": "Afivas",
   "private": true,
