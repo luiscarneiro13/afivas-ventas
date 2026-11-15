@@ -8,11 +8,10 @@ function mapProducto(row) {
     desc: row.descripcion,
     cat: row.categoria_nombre,
     categoriaId: row.categoria_id,
-    // precio = precio de venta (CON IVA): es el que se muestra y el que se
-    // usa en el carrito. precioSinIva es solo informativo/interno (lo usa
-    // la impresora fiscal, que calcula el IVA ella misma).
-    precio: Number(row.precio_con_iva),
-    precioSinIva: Number(row.precio),
+    // El sistema ya no calcula IVA (funciona como notas de entrega): el
+    // precio de venta es directamente la columna `precio` de la BD.
+    // `precio_con_iva` sigue guardada (no se mueve la BD) pero ya no se usa.
+    precio: Number(row.precio),
     existencia: row.existencia,
     stockMinimo: row.stock_minimo
   }
@@ -42,8 +41,15 @@ export const useCatalogStore = defineStore('catalog', {
         this.loading = false
       }
     },
-    findByCodigo(codigo) {
-      return this.products.find((p) => p.codigo === codigo)
+    // Como el código de producto puede estar repetido (migración 027: un
+    // producto borrado, un color o una talla pueden compartirlo), NO existe
+    // un "buscar por código" que devuelva un único producto: hay que usar
+    // `findAllByCodigo` (para ver todos los que lo comparten) o `findById`.
+    findAllByCodigo(codigo) {
+      return this.products.filter((p) => p.codigo === codigo)
+    },
+    findById(id) {
+      return this.products.find((p) => p.id === id)
     },
     search(query, limit = 8) {
       const q = query.trim().toLowerCase()
@@ -52,10 +58,7 @@ export const useCatalogStore = defineStore('catalog', {
         .filter((p) => p.codigo.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q))
         .slice(0, limit)
     },
-    exists(codigo) {
-      return this.products.some((p) => p.codigo === codigo)
-    },
-    async create({ codigo, desc, cat, precioConIva, existencia, stockMinimo }) {
+    async create({ codigo, desc, cat, precio, existencia, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
@@ -63,27 +66,27 @@ export const useCatalogStore = defineStore('catalog', {
         codigo,
         descripcion: desc,
         categoriaId: categoria.id,
-        precioConIva,
+        precio,
         existencia,
         stockMinimo
       })
       await this.fetchAll()
     },
-    async update(codigo, { desc, cat, precioConIva, existencia, stockMinimo }) {
+    async update(id, { desc, cat, precio, existencia, stockMinimo }) {
       const categorias = useCategoriasStore()
       const categoria = categorias.items.find((c) => c.nombre === cat)
       if (!categoria) throw new Error('Categoría no válida')
-      await window.api.productosUpdate(codigo, {
+      await window.api.productosUpdate(id, {
         descripcion: desc,
         categoriaId: categoria.id,
-        precioConIva,
+        precio,
         existencia,
         stockMinimo
       })
       await this.fetchAll()
     },
-    async remove(codigo) {
-      await window.api.productosRemove(codigo)
+    async remove(id) {
+      await window.api.productosRemove(id)
       await this.fetchAll()
     }
   }

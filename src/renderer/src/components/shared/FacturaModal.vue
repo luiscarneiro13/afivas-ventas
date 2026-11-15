@@ -54,15 +54,12 @@ const horaFmt = computed(() => {
 })
 
 // Los montos del ticket ya vienen resueltos en bolívares como snapshot de
-// esa venta (sale.subtotalBs/ivaBs/totalBs, item.precioBs/subtotalLineaBs —
-// ver stores/sales.js), no se recalculan con la tasa actual. Solo
+// esa venta (sale.subtotalBs/totalBs, item.precioBs/subtotalLineaBs — ver
+// stores/sales.js), no se recalculan con la tasa actual. Solo
 // recibido/vuelto no tienen snapshot propio en Bs, así que esos sí se
 // convierten acá con la tasa histórica de la venta (sale.tasaCambio).
 const bs = (usd) => fmtBs((usd || 0) * (props.sale?.tasaCambio || 0))
 
-const porcentajeIvaFmt = computed(() =>
-  props.sale ? Number(props.sale.porcentajeIva).toFixed(2).replace('.', ',') : ''
-)
 const vueltoFmt = computed(() => ((props.sale?.vuelto || 0) * (props.sale?.tasaCambio || 0)).toFixed(2))
 </script>
 
@@ -98,7 +95,7 @@ const vueltoFmt = computed(() => ((props.sale?.vuelto || 0) * (props.sale?.tasaC
           </div>
           <div class="dashed"></div>
           <div class="receipt-items">
-            <template v-for="i in sale.items" :key="i.codigo">
+            <template v-for="i in sale.items" :key="idx">
               <div v-if="i.cantidad > 1" class="ritem-qty">
                 <span>{{ i.cantidad }}x</span><span>{{ fmtBs(i.precioBs) }}</span>
               </div>
@@ -106,11 +103,6 @@ const vueltoFmt = computed(() => ((props.sale?.vuelto || 0) * (props.sale?.tasaC
                 <span>{{ i.desc }} (G)</span><span>{{ fmtBs(i.subtotalLineaBs) }}</span>
               </div>
             </template>
-          </div>
-          <div class="dashed"></div>
-          <div class="receipt-totals">
-            <div><span>BI G ({{ porcentajeIvaFmt }}%)</span><span>{{ fmtBs(sale.subtotalBs) }}</span></div>
-            <div><span>IVA G ({{ porcentajeIvaFmt }}%)</span><span>{{ fmtBs(sale.ivaBs) }}</span></div>
           </div>
           <div class="dashed"></div>
           <div class="receipt-totals">

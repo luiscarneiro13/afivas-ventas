@@ -4,18 +4,20 @@ function withCategoria(query) {
     .leftJoin('categorias', 'categorias.id', 'productos.categoria_id')
 }
 
-// El precio que carga el usuario (en el formulario y acá) es el precio CON
-// IVA — precio sin IVA se deriva de ese valor con el % de IVA vigente en
-// config_empresa, en el momento exacto de guardar. Se recalcula siempre acá
-// (autoridad única) en vez de confiar en un valor ya calculado que mande el
-// front, para no desincronizarse si el % de IVA cambió entretanto.
-async function calcularPrecioSinIva(knex, precioConIva) {
-  const config = await knex('config_empresa').where({ id: 1 }).first()
-  const porcentajeIva = config ? Number(config.porcentaje_iva) : 16
-  return Math.round((Number(precioConIva) / (1 + porcentajeIva / 100)) * 100) / 100
-}
+// El sistema ya no calcula IVA: el precio que carga el usuario es el precio
+// final de venta y se guarda tal cual en `productos.precio`. La columna
+// heredada `precio_con_iva` se mantiene sincronizada con el mismo valor para
+// no romper datos ni reportes antiguos, pero ya no se usa para calcular nada.
+//
+// Cálculo original (se conserva como referencia por si se reactiva el IVA):
+//
+// async function calcularPrecioSinIva(knex, precioConIva) {
+//   const config = await knex('config_empresa').where({ id: 1 }).first()
+//   const porcentajeIva = config ? Number(config.porcentaje_iva) : 16
+//   return Math.round((Number(precioConIva) / (1 + porcentajeIva / 100)) * 100) / 100
+// }
 
-// Blindaje: el front ya manda precioConIva con exactamente 2 decimales (ver
+// Blindaje: el front ya manda el precio con exactamente 2 decimales (ver
 // la máscara de dígitos en ProductoModal.vue), pero se redondea igual acá
 // para no depender de eso como única garantía.
 function round2(n) {
@@ -25,7 +27,10 @@ function round2(n) {
 export function makeProductosRepository(knex) {
   return {
     list() {
-      return withCategoria(knex('productos')).where('productos.activo', 1).orderBy('productos.codigo')
+      return withCategoria(knex('productos'))
+        .where('productos.activo', 1)
+        .orderBy('productos.codigo')
+        .orderBy('productos.id')
     },
 
     search(term) {
@@ -40,38 +45,54 @@ export function makeProductosRepository(knex) {
         .orderBy('productos.codigo')
     },
 
-    async create({ codigo, descripcion, categoriaId, precioConIva, existencia, stockMinimo }) {
-      const precio = await calcularPrecioSinIva(knex, precioConIva)
+    async create({ codigo, descripcion, categoriaId, precio, existencia, stockMinimo }) {
+      const precioFinal = round2(precio)
       const [id] = await knex('productos').insert({
         codigo,
         descripcion,
         categoria_id: categoriaId,
-        precio,
-        precio_con_iva: round2(precioConIva),
+        precio: precioFinal,
+        precio_con_iva: precioFinal,
         existencia: existencia ?? 0,
         stock_minimo: stockMinimo ?? 3
       })
       return withCategoria(knex('productos')).where('productos.id', id).first()
     },
 
-    async update(codigo, { descripcion, categoriaId, precioConIva, existencia, stockMinimo }) {
-      const precio = await calcularPrecioSinIva(knex, precioConIva)
+    // A partir de la migración 027 el código de producto YA NO es único: un
+    // producto borrado, un color o una talla pueden compartirlo. Por eso las
+    // operaciones que modifican un producto lo hacen por `id` (nunca por
+    // `codigo`, que podría afectar a varios productos a la vez).
+    async update(id, { descripcion, categoriaId, precio, existencia, stockMinimo }) {
+      const precioFinal = round2(precio)
       await knex('productos')
-        .where({ codigo })
+        .where({ id })
         .update({
           descripcion,
           categoria_id: categoriaId,
-          precio,
-          precio_con_iva: round2(precioConIva),
+          precio: precioFinal,
+          precio_con_iva: precioFinal,
           existencia: existencia ?? 0,
           stock_minimo: stockMinimo ?? 3,
           updated_at: knex.fn.now()
         })
-      return withCategoria(knex('productos')).where('productos.codigo', codigo).first()
+      return withCategoria(knex('productos')).where('productos.id', id).first()
     },
 
-    remove(codigo) {
-      return knex('productos').where({ codigo }).update({ activo: 0, updated_at: knex.fn.now() })
+    // Borrado lógico: se marca `activo = 0` y se le agrega el sufijo
+    // "-borrado" al código. Así el código original queda libre para poder
+    // reutilizarlo (por ejemplo en un producto de otro color o de otra talla)
+    // y el producto sigue siendo consultable en la base de datos.
+    remove(id) {
+      return knex('productos')
+        .where({ id })
+        .update({
+          activo: 0,
+          codigo: knex.raw(
+            "CASE WHEN codigo LIKE '%-borrado' THEN codigo ELSE codigo || '-borrado' END"
+          ),
+          updated_at: knex.fn.now()
+        })
     },
 
     // delta puede ser positivo (entrada de stock) o negativo (venta).
@@ -81,15 +102,15 @@ export function makeProductosRepository(knex) {
       return trx('productos').where({ id: productoId }).increment('existencia', delta)
     },
 
-    // Actualiza solo el precio (recalculando precio sin IVA), sin tocar el
-    // resto de los campos del producto. Usado por entradasStockRepository
-    // cuando el usuario elige actualizar el precio de venta al cargar
-    // inventario. Debe llamarse dentro de una transacción.
-    async updatePrecioConIva(trx, productoId, precioConIva) {
-      const precio = await calcularPrecioSinIva(trx, precioConIva)
+    // Actualiza solo el precio final de venta, sin tocar el resto de los
+    // campos del producto. Usado por entradasStockRepository cuando el
+    // usuario elige actualizar el precio de venta al cargar inventario.
+    // Debe llamarse dentro de una transacción.
+    updatePrecio(trx, productoId, precio) {
+      const precioFinal = round2(precio)
       return trx('productos').where({ id: productoId }).update({
-        precio,
-        precio_con_iva: round2(precioConIva),
+        precio: precioFinal,
+        precio_con_iva: precioFinal,
         updated_at: trx.fn.now()
       })
     }

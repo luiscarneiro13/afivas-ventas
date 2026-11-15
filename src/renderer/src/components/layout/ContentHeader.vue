@@ -87,6 +87,12 @@ function onBlur() {
         <div class="pill">Caja: <b>{{ caja.abierta ? 'Abierta' : 'Cerrada' }}</b></div>
         <span v-if="caja.abierta && caja.abiertaAt" class="caja-apertura">{{ fmtDateTime(caja.abiertaAt) }}</span>
       </div>
+      <!-- Atajo a Fiscalización (ruta fiscalizacion): vista con los Reportes
+           de la impresora fiscal (X y Z). Es variant="danger" porque un
+           Reporte Z es irreversible: resetea los acumulados del equipo,
+           cierra la sesión de caja y registra el cierre en
+           cierres_fiscales_z (ver FiscalizacionView.generarReporteZ). El
+           Reporte X es de consulta y no resetea nada. -->
       <BaseButton variant="danger" size="sm" @click="router.push({ name: 'fiscalizacion' })">Fiscalización</BaseButton>
     </div>
   </header>

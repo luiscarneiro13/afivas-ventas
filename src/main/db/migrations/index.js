@@ -24,6 +24,7 @@ import * as m023 from './023_add_precio_con_iva_productos.js'
 import * as m024 from './024_add_precio_sin_iva_venta_items.js'
 import * as m025 from './025_create_descargos_stock.js'
 import * as m026 from './026_add_costo_con_iva_entradas_stock.js'
+import * as m027 from './027_drop_unique_codigo_productos.js'
 
 // Lista ordenada y estática: Knex escanea directorios por defecto con
 // fs.readdirSync + require() dinámico, que Rollup no puede resolver dentro
@@ -55,7 +56,8 @@ const MIGRATIONS = [
   { name: '023_add_precio_con_iva_productos.js', module: m023 },
   { name: '024_add_precio_sin_iva_venta_items.js', module: m024 },
   { name: '025_create_descargos_stock.js', module: m025 },
-  { name: '026_add_costo_con_iva_entradas_stock.js', module: m026 }
+  { name: '026_add_costo_con_iva_entradas_stock.js', module: m026 },
+  { name: '027_drop_unique_codigo_productos.js', module: m027 }
 ]
 
 export const migrationSource = {

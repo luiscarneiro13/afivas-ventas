@@ -13,6 +13,15 @@ const caja = useCajaStore()
 
 const todaySales = computed(() => salesStore.sales.filter((s) => isSameDay(s.fecha, new Date())))
 const ventasHoy = computed(() => todaySales.value.reduce((a, s) => a + s.total, 0))
+// El equivalente en bolívares usa el snapshot de cada venta (total_bs / su
+// propia tasa_cambio), NO la tasa vigente de hoy: si la tasa cambió, el
+// monto cobrado en Bs era otro.
+const ventasHoyBs = computed(() =>
+  todaySales.value.reduce(
+    (a, s) => a + (s.totalBs != null ? s.totalBs : s.total * (s.tasaCambio || caja.tasa || 1)),
+    0
+  )
+)
 const facturasHoy = computed(() => todaySales.value.length)
 const ticketProm = computed(() => (facturasHoy.value ? ventasHoy.value / facturasHoy.value : 0))
 
@@ -75,7 +84,7 @@ onMounted(async () => {
       <StatCard
         label="Ventas de hoy"
         :value="fmtUsd(ventasHoy)"
-        :sub="fmtBs(ventasHoy * caja.tasa)"
+        :sub="fmtBs(ventasHoyBs)"
         icon="dollar"
         icon-bg="var(--primary-light)"
         icon-color="var(--primary)"

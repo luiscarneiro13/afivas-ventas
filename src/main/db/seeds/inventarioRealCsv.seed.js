@@ -2,10 +2,11 @@
 // se ejecuta automáticamente al iniciar la app). Se tomó del "Reporte
 // General de Inventario" del sistema anterior, exportado a CSV para
 // parsearlo de forma exacta en vez de transcribirlo a mano. Es idempotente
-// por código (onConflict('codigo').ignore()): en cada arranque intenta
-// insertar la lista completa e ignora los códigos que ya existan, así que
-// agregar productos nuevos a este archivo los lleva también a las
-// instalaciones que ya tenían datos, sin duplicar los existentes.
+// por código: en cada arranque intenta insertar la lista completa y omite
+// los códigos que ya existan, así que agregar productos nuevos a este archivo
+// los lleva también a las instalaciones que ya tenían datos, sin duplicar los
+// existentes. (Como el código ya no es único —ver migración 027— la
+// comprobación se hace antes del insert, no con `onConflict`.)
 //
 // codigo/existencia/precio se extrajeron programáticamente del CSV
 // original (parseo por columnas, verificado: 438 filas, sin duplicados,
@@ -646,6 +647,16 @@ export async function seedInventarioReal(knex) {
       stock_minimo: 3
     }
   })
-  await knex('productos').insert(rows).onConflict('codigo').ignore()
+  // Desde la migración 027 el código de producto ya NO es único (un producto
+  // borrado, un color o una talla pueden compartirlo), así que
+  // `onConflict('codigo')` dejó de ser válido en SQLite ("ON CONFLICT clause
+  // does not match any PRIMARY KEY or UNIQUE constraint"). La idempotencia
+  // se comprueba antes de insertar: si ya existe un producto con ese
+  // código, no se inserta otro.
+  const codigosExistentes = new Set(await knex('productos').distinct('codigo').pluck('codigo'))
+  const nuevas = rows.filter((r) => !codigosExistentes.has(r.codigo))
+  if (nuevas.length > 0) {
+    await knex('productos').insert(nuevas)
+  }
   return rows.length
 }

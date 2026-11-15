@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { useCatalogStore } from './catalog'
 import { useMetodosPagoStore } from './metodosPago'
-import { useConfigEmpresaStore } from './configEmpresa'
 
 // Adapta una fila de `ventas` (columnas SQL en snake_case, con snapshots)
 // a la forma que ya esperan VentaView/FacturaModal/ReportesView:
@@ -129,13 +128,12 @@ export const useSalesStore = defineStore('sales', {
       tasaCambio,
       subtotal,
       subtotalBs,
-      iva,
-      ivaBs,
+      iva = 0,
+      ivaBs = 0,
       total,
       totalBs,
       numeroFacturaFiscal
     }) {
-      const configEmpresa = useConfigEmpresaStore()
       const venta = await window.api.ventasRegistrar({
         clienteId,
         sesionCajaId,
@@ -147,11 +145,12 @@ export const useSalesStore = defineStore('sales', {
           precioUnitario: i.precio,
           precioUnitarioBs: i.precioBs,
           subtotalLineaBs: i.subtotalLineaBs,
-          precioUnitarioSinIvaBs: i.precioSinIvaBs
+          // Sin IVA: el precio final en Bs es también la base sin IVA.
+          precioUnitarioSinIvaBs: i.precioBs
         })),
         subtotal,
         subtotalBs,
-        porcentajeIva: configEmpresa.porcentajeIva,
+        porcentajeIva: 0,
         iva,
         ivaBs,
         total,

@@ -69,8 +69,28 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('productos:list', () => repos.productos.list())
   ipcMain.handle('productos:search', (_e, term) => repos.productos.search(term))
   ipcMain.handle('productos:create', (_e, payload) => repos.productos.create(payload))
-  ipcMain.handle('productos:update', (_e, codigo, payload) => repos.productos.update(codigo, payload))
-  ipcMain.handle('productos:remove', (_e, codigo) => repos.productos.remove(codigo))
+  // El código de producto puede estar repetido (migración 027), así que las
+  // operaciones que tocan un producto puntual se hacen por `id`.
+  ipcMain.handle('productos:update', (_e, id, payload) => repos.productos.update(id, payload))
+  ipcMain.handle('productos:remove', (_e, id) => repos.productos.remove(id))
+
+  // Operaciones de mantenimiento (destructivas): exigen la contraseña del
+  // usuario que las ejecuta. Se devuelve { ok, message } en vez de lanzar, para
+  // que el renderer reciba el mensaje limpio (sin el prefijo que Electron
+  // agrega a los errores de IPC).
+  ipcMain.handle('operaciones:vaciarProductosYVentas', async (_e, payload) => {
+    try {
+      const { usuarioId, password } = payload || {}
+      const passwordOk = await repos.usuarios.verificarPassword(usuarioId, password)
+      if (!passwordOk) {
+        return { ok: false, message: 'Contraseña incorrecta' }
+      }
+      const resultado = await repos.operaciones.vaciarProductosYVentas()
+      return { ok: true, ...resultado }
+    } catch (e) {
+      return { ok: false, message: e?.message || 'No se pudo vaciar la base de datos' }
+    }
+  })
 
   // Categorías
   ipcMain.handle('categorias:list', () => repos.categorias.list())
@@ -102,7 +122,8 @@ export function registerDbHandlers(knex) {
   ipcMain.handle('ventas:findByNumero', (_e, numero) => repos.ventas.findByNumero(numero))
   ipcMain.handle('ventas:topProducto', () => repos.ventas.topProducto())
   ipcMain.handle('ventas:anular', (_e, id) => repos.ventas.anular(id))
-  ipcMain.handle('ventas:marcarImpresaFiscalmente', (_e, id) => repos.ventas.marcarImpresaFiscalmente(id))
+  // Deshabilitado: la impresión fiscal quedó comentada (ver src/main/index.js).
+  // ipcMain.handle('ventas:marcarImpresaFiscalmente', (_e, id) => repos.ventas.marcarImpresaFiscalmente(id))
 
   // Entradas de stock
   ipcMain.handle('stock:registrarEntrada', (_e, payload) => repos.entradasStock.registrar(payload))

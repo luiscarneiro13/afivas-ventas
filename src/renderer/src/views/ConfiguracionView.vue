@@ -1,5 +1,24 @@
 <script setup>
+import { ref } from 'vue'
 import NavCard from '@renderer/components/ui/NavCard.vue'
+import BaseButton from '@renderer/components/ui/BaseButton.vue'
+import VaciarDatosModal from '@renderer/components/ui/VaciarDatosModal.vue'
+import { useAuthStore } from '@renderer/stores/auth'
+import { useCatalogStore } from '@renderer/stores/catalog'
+import { useSalesStore } from '@renderer/stores/sales'
+
+const auth = useAuthStore()
+const catalog = useCatalogStore()
+const sales = useSalesStore()
+
+const vaciarOpen = ref(false)
+
+// Tras vaciar, se recargan los catálogos que ya estaban en memoria para que
+// no queden datos viejos en pantalla.
+async function onVacio() {
+  await catalog.fetchAll()
+  await sales.fetchAll()
+}
 </script>
 
 <template>
@@ -16,6 +35,16 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
         <NavCard icon="user" label="Clientes" :to="{ name: 'configuracion-clientes' }" />
         <NavCard icon="dollar" label="Ventas" :to="{ name: 'configuracion-ventas' }" />
       </div>
+
+      <!-- Operación destructiva: solo para administradores y siempre con
+           confirmación por contraseña. -->
+      <div v-if="auth.rol === 'administrador'" class="zona-peligro">
+        <div class="zp-texto">
+          <b>Vaciar productos y ventas</b>
+          <span>Elimina todos los productos y todas las ventas registradas.</span>
+        </div>
+        <BaseButton variant="danger" @click="vaciarOpen = true">Vaciar productos y ventas</BaseButton>
+      </div>
     </section>
 
     <section class="config-section">
@@ -25,6 +54,8 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
         <NavCard icon="lock" label="Usuarios" :to="{ name: 'configuracion-usuarios' }" />
       </div>
     </section>
+
+    <VaciarDatosModal v-model="vaciarOpen" @vacio="onVacio" />
   </div>
 </template>
 
@@ -52,5 +83,32 @@ import NavCard from '@renderer/components/ui/NavCard.vue'
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
   width: 100%;
+}
+/* Zona de operaciones destructivas: separada de las tarjetas normales para
+   que el usuario no la pulse por accidente. */
+.zona-peligro {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px dashed var(--danger);
+  border-radius: var(--radius-sm);
+  background: rgba(220, 38, 38, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.zp-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.zp-texto b {
+  font-size: 13.5px;
+  color: var(--text);
+}
+.zp-texto span {
+  font-size: 12.5px;
+  color: var(--text-muted);
 }
 </style>

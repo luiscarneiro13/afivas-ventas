@@ -6,7 +6,11 @@ const props = defineProps({
   title: { type: String, default: '' },
   width: { type: String, default: '460px' },
   closeOnOverlay: { type: Boolean, default: false },
-  showHeader: { type: Boolean, default: true }
+  showHeader: { type: Boolean, default: true },
+  // Permite ocultar la "X" del encabezado. Se usa en los modales que exigen
+  // una acción explícita: esos modales solo se cierran con su botón
+  // Cancelar (ni con la X, ni con ESC, ni haciendo click fuera).
+  showClose: { type: Boolean, default: true }
 })
 const emit = defineEmits(['update:modelValue', 'close'])
 
@@ -25,7 +29,7 @@ function onOverlayClick() {
       <div class="modal" :style="{ width: `min(${width}, 100%)` }">
         <div v-if="showHeader" class="modal-head">
           <h3>{{ title }}</h3>
-          <button class="icon-btn" title="Cerrar" @click="close"><AppIcon name="x" :size="18" /></button>
+          <button v-if="showClose" class="icon-btn" title="Cerrar" @click="close"><AppIcon name="x" :size="18" /></button>
         </div>
         <div class="modal-body" :class="{ 'no-header-pad': !showHeader }">
           <slot />

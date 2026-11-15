@@ -61,10 +61,13 @@ const filteredProducts = computed(() => {
   })
 })
 
+// El badge muestra solo la cantidad en existencia (en negrita y con letra
+// más grande, ver .badge-cant), conservando el color por estado:
+// rojo = agotado, amarillo = stock mínimo, verde = en stock.
 function badgeInfo(p) {
-  if (p.existencia === 0) return { variant: 'out', text: 'Agotado' }
-  if (p.existencia <= (p.stockMinimo ?? 3)) return { variant: 'low', text: `Quedan ${p.existencia}` }
-  return { variant: 'ok', text: 'En stock' }
+  if (p.existencia === 0) return { variant: 'out', text: String(p.existencia) }
+  if (p.existencia <= (p.stockMinimo ?? 3)) return { variant: 'low', text: String(p.existencia) }
+  return { variant: 'ok', text: String(p.existencia) }
 }
 
 const modalOpen = ref(false)
@@ -89,7 +92,7 @@ function askDelete(p) {
 async function confirmDelete() {
   if (!productoAEliminar.value) return
   try {
-    await catalog.remove(productoAEliminar.value.codigo)
+    await catalog.remove(productoAEliminar.value.id)
     ui.toast('Producto eliminado', 'info')
   } catch (e) {
     ui.toast(e?.message || 'No se pudo eliminar el producto', 'error')
@@ -101,10 +104,9 @@ const PRODUCTOS_COLUMNS = [
   { key: 'codigo', header: 'Código', width: 16 },
   { key: 'desc', header: 'Descripción', width: 32 },
   { key: 'cat', header: 'Categoría', width: 20 },
-  { key: 'precioSinIva', header: 'Precio sin IVA ($)', width: 16 },
-  { key: 'precio', header: 'Precio con IVA ($)', width: 18 },
-  { key: 'precioBs', header: 'Precio con IVA (Bs)', width: 18, format: (r) => Number((r.precio * caja.tasa).toFixed(2)) },
-  { key: 'existencia', header: 'Existencia', width: 12 },
+  { key: 'precio', header: 'Precio ($)', width: 16 },
+  { key: 'precioBs', header: 'Precio (Bs)', width: 18, format: (r) => Number((r.precio * caja.tasa).toFixed(2)) },
+  { key: 'existencia', header: 'Cantidad', width: 12 },
   { key: 'stockMinimo', header: 'Alerta stock mínimo', width: 16 }
 ]
 
@@ -128,10 +130,9 @@ const PDF_FIELDS = [
   { key: 'codigo', label: 'Código' },
   { key: 'desc', label: 'Nombre' },
   { key: 'precio', label: 'Precio ($)' },
-  { key: 'precioSinIva', label: 'Precio sin IVA ($)' },
   { key: 'precioBs', label: 'Precio (Bs)' },
   { key: 'cat', label: 'Categoría' },
-  { key: 'existencia', label: 'Existencia' },
+  { key: 'existencia', label: 'Cantidad' },
   { key: 'stockMinimo', label: 'Stock mínimo' }
 ]
 const PDF_DEFAULTS = ['codigo', 'desc', 'precio']
@@ -139,7 +140,6 @@ const PDF_DEFAULTS = ['codigo', 'desc', 'precio']
 // Formatos especiales por campo del reporte PDF (los demás van tal cual).
 const PDF_FORMATS = {
   precio: (p) => fmtUsd(p.precio),
-  precioSinIva: (p) => fmtUsd(p.precioSinIva),
   precioBs: (p) => fmtBs(p.precio * caja.tasa),
   cat: (p) => p.cat || '—'
 }
@@ -185,14 +185,21 @@ async function importProductos() {
     const codigo = String(fila['Código'] ?? '').trim()
     const desc = String(fila['Descripción'] ?? '').trim()
     const cat = String(fila['Categoría'] ?? '').trim()
-    const precioConIva = Number(fila['Precio con IVA ($)'])
-    const existencia = fila['Existencia'] !== undefined && fila['Existencia'] !== '' ? Number(fila['Existencia']) : 0
+    const precio = Number(fila['Precio ($)'] ?? fila['Precio con IVA ($)'])
+    // Respaldo al nombre anterior: los Excel exportados antes del cambio
+    // de encabezados traen "Existencia".
+    const existencia =
+      fila['Cantidad'] !== undefined && fila['Cantidad'] !== ''
+        ? Number(fila['Cantidad'])
+        : fila['Existencia'] !== undefined && fila['Existencia'] !== ''
+          ? Number(fila['Existencia'])
+          : 0
     const stockMinimo =
       fila['Alerta stock mínimo'] !== undefined && fila['Alerta stock mínimo'] !== ''
         ? Number(fila['Alerta stock mínimo'])
         : 3
 
-    if (!codigo || !desc || !cat || !Number.isFinite(precioConIva)) {
+    if (!codigo || !desc || !cat || !Number.isFinite(precio)) {
       errores.push(`Fila con código "${codigo || '(vacío)'}": faltan datos obligatorios`)
       continue
     }
@@ -202,11 +209,16 @@ async function importProductos() {
     }
 
     try {
-      if (catalog.exists(codigo)) {
-        await catalog.update(codigo, { desc, cat, precioConIva, existencia, stockMinimo })
+      // El código puede estar repetido (migración 027), así que solo se
+      // actualiza el producto que coincide en código Y descripción; si no
+      // hay coincidencia, se crea uno nuevo con ese código.
+      const candidatos = catalog.findAllByCodigo(codigo)
+      const existente = candidatos.find((c) => c.desc === desc)
+      if (existente) {
+        await catalog.update(existente.id, { desc, cat, precio, existencia, stockMinimo })
         actualizados++
       } else {
-        await catalog.create({ codigo, desc, cat, precioConIva, existencia, stockMinimo })
+        await catalog.create({ codigo, desc, cat, precio, existencia, stockMinimo })
         creados++
       }
     } catch (e) {
@@ -288,7 +300,7 @@ async function importProductos() {
             <th>Categoría</th>
             <th>Precio $</th>
             <th>Precio Bs</th>
-            <th>Existencia</th>
+            <th>Cantidad</th>
             <th></th>
           </tr>
         </thead>
@@ -298,7 +310,7 @@ async function importProductos() {
               <EmptyState icon="box" title="Sin productos" subtitle="No se encontraron coincidencias" />
             </td>
           </tr>
-          <tr v-for="(p, i) in filteredProducts" :key="p.codigo">
+          <tr v-for="(p, i) in filteredProducts" :key="p.id">
             <td class="num">{{ i + 1 }}</td>
             <td>
               <div class="prod-cell">
@@ -309,7 +321,11 @@ async function importProductos() {
             <td>{{ p.cat }}</td>
             <td class="num">{{ fmtUsd(p.precio) }}</td>
             <td class="num">{{ fmtBs(p.precio * caja.tasa) }}</td>
-            <td><BaseBadge :variant="badgeInfo(p).variant">{{ badgeInfo(p).text }}</BaseBadge></td>
+            <td>
+              <BaseBadge :variant="badgeInfo(p).variant" class="badge-cant">
+                {{ badgeInfo(p).text }}
+              </BaseBadge>
+            </td>
             <td>
               <div class="table-actions">
                 <button class="icon-btn" title="Editar" @click="openEdit(p)"><AppIcon name="edit" :size="15" /></button>
@@ -465,6 +481,15 @@ table.data-table {
 .prod-cell b {
   font-size: 12.5px;
   display: block;
+}
+/* Badge de cantidad: conserva los colores/variantes de BaseBadge (rojo =
+   agotado, amarillo = stock mínimo, verde = en stock) y muestra solo la
+   cifra, en negrita y con letra más grande que el badge base (10px).
+   Mayor especificidad para ganarle al .badge del componente hijo. */
+.data-table .badge-cant {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 10px;
 }
 .prod-cell span {
   font-size: 11px;

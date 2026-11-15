@@ -78,7 +78,8 @@ async function exportVentasPdf() {
     { label: 'Facturas completadas', valor: String(completadas.length) },
     { label: 'Facturas anuladas', valor: String(ventas.length - completadas.length) },
     { label: 'Total vendido ($)', valor: fmtUsd(sumar('total')) },
-    { label: 'Impuesto IVA ($)', valor: fmtUsd(sumar('iva')) },
+    // Sin IVA: el sistema ya no calcula impuesto en ninguna operación.
+    // { label: 'Impuesto IVA ($)', valor: fmtUsd(sumar('iva')) },
     { label: 'Total vendido (Bs)', valor: fmtBs(sumar('totalBs')) },
     ...[...porMetodo.entries()].map(([label, usd]) => ({
       label: `Cobros · ${label}`,

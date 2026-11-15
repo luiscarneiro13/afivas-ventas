@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useCatalogStore } from '@renderer/stores/catalog'
 import { useStockStore } from '@renderer/stores/stock'
 import { useAuthStore } from '@renderer/stores/auth'
-import { useConfigEmpresaStore } from '@renderer/stores/configEmpresa'
 import { useUiStore } from '@renderer/stores/ui'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseField from '@renderer/components/ui/BaseField.vue'
@@ -15,7 +14,6 @@ import { digitsFromDecimal, fmtDateTime, fmtUsd, maskDisplay } from '@renderer/u
 const catalog = useCatalogStore()
 const stock = useStockStore()
 const auth = useAuthStore()
-const configEmpresa = useConfigEmpresaStore()
 const ui = useUiStore()
 
 const searchQuery = ref('')
@@ -26,12 +24,12 @@ const cantidad = ref(1)
 const proveedor = ref('')
 const nota = ref('')
 
-// Costo con IVA pagado por esta mercancía (opcional, solo informativo/
-// margen). Misma máscara de centavos que el precio en ProductoModal.vue.
-const costoConIvaDigits = ref('0')
-const costoConIvaDisplay = computed(() => maskDisplay(costoConIvaDigits.value))
+// Costo pagado por esta mercancía (opcional, solo informativo/margen).
+// Misma máscara de centavos que el precio en ProductoModal.vue.
+const costoDigits = ref('0')
+const costoDisplay = computed(() => maskDisplay(costoDigits.value))
 function onInputCosto(e) {
-  costoConIvaDigits.value = e.target.value.replace(/\D/g, '').slice(0, 10) || '0'
+  costoDigits.value = e.target.value.replace(/\D/g, '').slice(0, 10) || '0'
   nextTick(() => {
     const len = e.target.value.length
     e.target.setSelectionRange(len, len)
@@ -43,10 +41,10 @@ function onInputCosto(e) {
 // promedio, así que cambiar el precio solo por cargar inventario podría
 // alterar ventas sin que nadie lo haya decidido.
 const actualizarPrecio = ref(false)
-const nuevoPrecioConIvaDigits = ref('0')
-const nuevoPrecioConIvaDisplay = computed(() => maskDisplay(nuevoPrecioConIvaDigits.value))
+const nuevoPrecioDigits = ref('0')
+const nuevoPrecioDisplay = computed(() => maskDisplay(nuevoPrecioDigits.value))
 function onInputNuevoPrecio(e) {
-  nuevoPrecioConIvaDigits.value = e.target.value.replace(/\D/g, '').slice(0, 10) || '0'
+  nuevoPrecioDigits.value = e.target.value.replace(/\D/g, '').slice(0, 10) || '0'
   nextTick(() => {
     const len = e.target.value.length
     e.target.setSelectionRange(len, len)
@@ -56,17 +54,9 @@ function selectAllMoney(e) {
   e.target.select()
 }
 
-// Solo informativo (deshabilitado): igual que en ProductoModal.vue, el
-// backend recalcula y persiste este valor de forma autoritativa al guardar.
-const nuevoPrecioSinIvaPreview = computed(() => {
-  const precioConIva = Number(nuevoPrecioConIvaDigits.value) / 100
-  const precio = precioConIva / (1 + configEmpresa.porcentajeIva / 100)
-  return precio.toFixed(2)
-})
-
 watch(actualizarPrecio, (on) => {
   if (on && selectedProduct.value) {
-    nuevoPrecioConIvaDigits.value = digitsFromDecimal(selectedProduct.value.precio)
+    nuevoPrecioDigits.value = digitsFromDecimal(selectedProduct.value.precio)
   }
 })
 
@@ -86,9 +76,9 @@ function resetForm() {
   cantidad.value = 1
   proveedor.value = ''
   nota.value = ''
-  costoConIvaDigits.value = '0'
+  costoDigits.value = '0'
   actualizarPrecio.value = false
-  nuevoPrecioConIvaDigits.value = '0'
+  nuevoPrecioDigits.value = '0'
 }
 
 async function registrar() {
@@ -102,12 +92,12 @@ async function registrar() {
     return
   }
 
-  const costoConIva = costoConIvaDigits.value === '0' ? null : Number(costoConIvaDigits.value) / 100
+  const costo = costoDigits.value === '0' ? null : Number(costoDigits.value) / 100
 
-  let nuevoPrecioConIva = null
+  let nuevoPrecio = null
   if (actualizarPrecio.value) {
-    nuevoPrecioConIva = Number(nuevoPrecioConIvaDigits.value) / 100
-    if (isNaN(nuevoPrecioConIva) || nuevoPrecioConIva <= 0) {
+    nuevoPrecio = Number(nuevoPrecioDigits.value) / 100
+    if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
       ui.toast('Ingresa un precio de venta válido', 'error')
       return
     }
@@ -120,8 +110,8 @@ async function registrar() {
       cantidad: cant,
       proveedor: proveedor.value,
       nota: nota.value,
-      costoConIva,
-      nuevoPrecioConIva,
+      costo,
+      nuevoPrecio,
       usuarioId: auth.usuarioId
     })
     ui.toast(`Se agregaron ${cant} unidades a "${desc}"`, 'success')
@@ -168,9 +158,9 @@ async function registrar() {
         <BaseField label="Cantidad a ingresar">
           <input v-model="cantidad" type="number" min="1" />
         </BaseField>
-        <BaseField label="Costo con IVA ($) (opcional)">
+        <BaseField label="Costo ($) (opcional)">
           <input
-            :value="costoConIvaDisplay"
+            :value="costoDisplay"
             type="text"
             inputmode="numeric"
             @input="onInputCosto"
@@ -188,18 +178,15 @@ async function registrar() {
           <input v-model="actualizarPrecio" type="checkbox" :disabled="!selectedProduct" />
           Actualizar precio de venta de este producto
         </label>
-        <div v-if="actualizarPrecio" class="field-row">
-          <BaseField label="Nuevo precio con IVA ($)">
+        <div v-if="actualizarPrecio">
+          <BaseField label="Nuevo precio ($)">
             <input
-              :value="nuevoPrecioConIvaDisplay"
+              :value="nuevoPrecioDisplay"
               type="text"
               inputmode="numeric"
               @input="onInputNuevoPrecio"
               @click="selectAllMoney"
             />
-          </BaseField>
-          <BaseField label="Precio sin IVA ($)">
-            <input :value="nuevoPrecioSinIvaPreview" type="text" disabled placeholder="0.00" />
           </BaseField>
         </div>
 
@@ -215,7 +202,7 @@ async function registrar() {
                 <th>Fecha</th>
                 <th>Producto</th>
                 <th>Cantidad</th>
-                <th>Costo c/IVA</th>
+                <th>Costo</th>
                 <th>Proveedor</th>
                 <th>Usuario</th>
               </tr>
@@ -233,7 +220,7 @@ async function registrar() {
                   <span class="mono-sub">{{ e.codigo }}</span>
                 </td>
                 <td class="num qty-in">+{{ e.cantidad }}</td>
-                <td class="num">{{ e.costoConIva != null ? fmtUsd(e.costoConIva) : '—' }}</td>
+                <td class="num">{{ e.costo != null ? fmtUsd(e.costo) : '—' }}</td>
                 <td>{{ e.proveedor }}</td>
                 <td>{{ e.usuario }}</td>
               </tr>

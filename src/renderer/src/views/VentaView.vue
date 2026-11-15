@@ -9,8 +9,7 @@ import { useMetodosPagoStore } from '@renderer/stores/metodosPago'
 import { useCajaStore } from '@renderer/stores/caja'
 import { useAuthStore } from '@renderer/stores/auth'
 import { useUiStore } from '@renderer/stores/ui'
-import { useConfigEmpresaStore } from '@renderer/stores/configEmpresa'
-import { fmtBs, round2 } from '@renderer/utils/format'
+import { fmtBs, fmtUsd, round2 } from '@renderer/utils/format'
 import AppIcon from '@renderer/components/ui/AppIcon.vue'
 import BaseBadge from '@renderer/components/ui/BaseBadge.vue'
 import BaseButton from '@renderer/components/ui/BaseButton.vue'
@@ -20,7 +19,6 @@ import SearchDropdown from '@renderer/components/ui/SearchDropdown.vue'
 import ClienteModal from '@renderer/components/productos/ClienteModal.vue'
 import PagoModal from '@renderer/components/venta/PagoModal.vue'
 import CantidadExcedeModal from '@renderer/components/venta/CantidadExcedeModal.vue'
-import FiscalPrintErrorModal from '@renderer/components/venta/FiscalPrintErrorModal.vue'
 
 const route = useRoute()
 const catalog = useCatalogStore()
@@ -31,7 +29,6 @@ const metodosPago = useMetodosPagoStore()
 const caja = useCajaStore()
 const auth = useAuthStore()
 const ui = useUiStore()
-const configEmpresa = useConfigEmpresaStore()
 
 // Igual que fmtBs/fmtUsd pero sin el prefijo de moneda, para las columnas de
 // la grilla del carrito donde el encabezado ya deja claro la moneda de cada
@@ -39,39 +36,20 @@ const configEmpresa = useConfigEmpresaStore()
 const fmtNum = (n) =>
   Number(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const ivaPorcentajeFmt = computed(() => Number(configEmpresa.porcentajeIva).toFixed(2).replace('.', ','))
-
-// La vista previa fiscal imita el ticket real que emite la impresora (Aclas
-// PP9-Plus): descripción partida en líneas de 28 caracteres como lo hace el
-// equipo, sufijo "(G)" del grupo de IVA, línea "Nx precio unitario" solo
-// cuando la cantidad es mayor a 1, y montos SIN IVA (es lo que se le
-// registra a la impresora, ver printFacturaFiscal en main/index.js).
-const FISCAL_DESC_COLS = 28
-
-function fiscalDescLineas(desc) {
-  const texto = `${desc} (G)`
-  const lineas = []
-  for (let i = 0; i < texto.length; i += FISCAL_DESC_COLS) lineas.push(texto.slice(i, i + FISCAL_DESC_COLS))
-  return lineas
-}
-const fiscalDesc = (desc) => fiscalDescLineas(desc).join('\n')
-
 const clientQuery = ref('')
 const productQuery = ref('')
 const clientSearchRef = ref(null)
 const productSearchRef = ref(null)
 
 const pagoOpen = ref(false)
-const fiscalPrintError = ref(null)
 
 const clientItems = computed(() => clientsStore.search(clientQuery.value))
 const productItems = computed(() => catalog.search(productQuery.value, 8))
 
-// Precio de venta en Bs derivado del precio SIN IVA, igual que en el
-// carrito (ver itemsConBs en stores/cart.js), para que lo que se ve al
-// buscar coincida con lo que termina cobrándose.
-const precioVentaBs = (p) =>
-  round2(round2(p.precioSinIva * caja.tasa) * (1 + configEmpresa.porcentajeIva / 100))
+// Precio de venta en Bs derivado del precio final del producto, igual que
+// en el carrito (ver itemsConBs en stores/cart.js), para que lo que se ve
+// al buscar coincida con lo que termina cobrándose.
+const precioVentaBs = (p) => round2(p.precio * caja.tasa)
 
 function estadoProducto(p) {
   if (p.existencia === 0) return 'Agotado'
@@ -116,13 +94,15 @@ function onClienteCreado(c) {
 }
 
 function selectProduct(p) {
-  cart.addProduct(p.codigo)
+  // Se agrega por `id` y no por código: el código puede estar repetido
+  // (migración 027) y dos productos distintos pueden compartirlo.
+  cart.addProduct(p.id)
   productQuery.value = ''
   focusProductSearch()
 }
 
 const qtyModalOpen = ref(false)
-const qtyModalCodigo = ref(null)
+const qtyModalProductoId = ref(null)
 const qtyModalDesc = ref('')
 const qtyModalSolicitado = ref(0)
 const qtyModalDisponible = ref(0)
@@ -135,34 +115,34 @@ function checkLowStock(p, qty) {
   }
 }
 
-function onQtyChange(codigo, e) {
-  const item = cart.items.find((x) => x.codigo === codigo)
-  const p = catalog.findByCodigo(codigo)
+function onQtyChange(productoId, e) {
+  const item = cart.items.find((x) => x.productoId === productoId)
+  const p = catalog.findById(productoId)
   if (!item || !p) return
   const qty = Math.floor(Number(e.target.value))
   if (!qty || qty <= 0) {
-    cart.removeProduct(codigo)
+    cart.removeProduct(productoId)
     return
   }
   if (qty > p.existencia) {
     // Revertimos el texto mostrado: item.cantidad no cambió, así que el
     // binding :value no repinta el input solo por eso.
     e.target.value = item.cantidad
-    qtyModalCodigo.value = codigo
+    qtyModalProductoId.value = productoId
     qtyModalDesc.value = p.desc
     qtyModalSolicitado.value = qty
     qtyModalDisponible.value = p.existencia
     qtyModalOpen.value = true
     return
   }
-  cart.setQty(codigo, qty)
+  cart.setQty(productoId, qty)
   checkLowStock(p, qty)
 }
 
 function onQtyModalConfirm(qty) {
-  const codigo = qtyModalCodigo.value
-  const p = catalog.findByCodigo(codigo)
-  cart.setQty(codigo, qty)
+  const productoId = qtyModalProductoId.value
+  const p = catalog.findById(productoId)
+  cart.setQty(productoId, qty)
   if (p) checkLowStock(p, qty)
 }
 
@@ -194,45 +174,6 @@ function abrirPago() {
   pagoOpen.value = true
 }
 
-// Envía la factura recién registrada a la impresora fiscal (Aclas PP9-Plus,
-// protocolo TFHKA). Se llama después de registrar la venta, así que un fallo
-// aquí (equipo apagado, sin papel, desconectado) no afecta el registro: la
-// venta ya quedó guardada en la BD local. Se avisa con un modal (con opción
-// de reintentar) en vez de un toast que desaparece solo.
-//
-// No calcula nada: sale.numeroFacturaFiscal (el REF) y sale.items[].precioBs
-// ya vienen fijados desde el registro de la venta (ver onFinalizar/
-// stores/sales.js) — acá solo se lee config para el puerto COM y se manda
-// la factura tal cual quedó guardada. Si falla, el reintento reenvía la
-// misma venta con el mismo REF, sin volver a calcular nada.
-async function imprimirFiscal(sale) {
-  fiscalPrintError.value = null
-  try {
-    const config = await window.api.configImpresoraGet()
-    const comPort = config?.puerto_com
-    if (!comPort) {
-      fiscalPrintError.value = { sale, message: 'No hay un puerto COM configurado para la impresora fiscal.' }
-      return
-    }
-    const result = await window.api.printFacturaFiscal(comPort, {
-      ...sale,
-      correlativoFiscal: sale.numeroFacturaFiscal
-    })
-    if (!result?.ok) {
-      fiscalPrintError.value = { sale, message: result?.message || 'No se pudo imprimir la factura fiscal.' }
-      return
-    }
-    await window.api.ventasMarcarImpresaFiscalmente(sale.id)
-    await sales.fetchAll()
-  } catch (e) {
-    fiscalPrintError.value = { sale, message: e?.message || 'No se pudo imprimir la factura fiscal.' }
-  }
-}
-
-function reintentarImpresionFiscal() {
-  if (fiscalPrintError.value?.sale) imprimirFiscal(fiscalPrintError.value.sale)
-}
-
 async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) {
   const cliente = cart.cliente
   if (!cliente) {
@@ -240,18 +181,10 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) 
     return
   }
   try {
-    // El correlativo/REF fiscal se reserva y se guarda en la venta desde ya
-    // (Configuración > Máquina fiscal lleva el contador porque el protocolo
-    // TFHKA no devuelve el número que la impresora asigna). Así, al imprimir
-    // no hay que calcular nada: se manda el REF que ya quedó fijo en la BD,
-    // y un reintento tras un fallo de impresión reenvía ese mismo número.
-    const configFiscal = await window.api.configImpresoraGet()
-    const correlativoActual = configFiscal?.correlativo_factura_fiscal
-      ? (parseInt(String(configFiscal.correlativo_factura_fiscal), 10) || 0)
-      : 0
-    const siguienteCorrelativo = correlativoActual + 1
-
-    const sale = await sales.registrarVenta({
+    // Sin impresión fiscal: la venta se registra como nota de entrega. El
+    // IVA ya no se calcula en ninguna parte del sistema, así que se guarda
+    // en 0 por compatibilidad con las columnas existentes de la BD.
+    await sales.registrarVenta({
       items: cart.itemsConBs,
       clienteId: cliente.id,
       sesionCajaId: caja.id,
@@ -264,16 +197,13 @@ async function onFinalizar({ methodId, recibido, vuelto, referencia, bancoId }) 
       tasaCambio: caja.tasa,
       subtotal: cart.subtotal,
       subtotalBs: cart.subtotalBs,
-      iva: cart.iva,
-      ivaBs: cart.ivaBs,
+      iva: 0,
+      ivaBs: 0,
       total: cart.total,
-      totalBs: cart.totalBs,
-      numeroFacturaFiscal: siguienteCorrelativo
+      totalBs: cart.totalBs
     })
-    await window.api.configImpresoraUpdate({ correlativoFacturaFiscal: siguienteCorrelativo })
     pagoOpen.value = false
     ui.toast('Venta finalizada con éxito', 'success')
-    await imprimirFiscal(sale)
     cart.clear()
   } catch (e) {
     ui.toast(e?.message || 'No se pudo registrar la venta', 'error')
@@ -399,7 +329,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                   />
                 </td>
               </tr>
-              <tr v-for="(item, i) in cart.itemsConBs" v-else :key="item.codigo">
+              <tr v-for="(item, i) in cart.itemsConBs" v-else :key="item.productoId">
                 <td class="num">{{ i + 1 }}</td>
                 <td class="num">{{ item.codigo }}</td>
                 <td>{{ item.desc }}</td>
@@ -411,7 +341,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                     inputmode="numeric"
                     class="vb-qty-input"
                     :value="item.cantidad"
-                    @change="onQtyChange(item.codigo, $event)"
+                    @change="onQtyChange(item.productoId, $event)"
                     @focus="selectQtyContent"
                     @click="selectQtyContent"
                   />
@@ -419,7 +349,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <td class="num">{{ fmtNum(item.precioBs) }}</td>
                 <td class="num">{{ fmtNum(item.subtotalLineaBs) }}</td>
                 <td>
-                  <button class="vb-row-del" title="Quitar" @click="cart.removeProduct(item.codigo)">
+                  <button class="vb-row-del" title="Quitar" @click="cart.removeProduct(item.productoId)">
                     <AppIcon name="x" :size="13" />
                   </button>
                 </td>
@@ -431,21 +361,27 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
       <div class="vb-right">
         <template v-if="cart.items.length > 0">
-          <div class="vb-fiscal-title">Vista previa fiscal</div>
+          <div class="vb-fiscal-title">Resumen de la venta</div>
           <div class="vb-fiscal-items">
-            <div v-for="(item, i) in cart.fiscalPreview.items" :key="i" class="vb-fiscal-item">
-              <div v-if="item.cantidad > 1" class="vb-fiscal-item-qty">
-                {{ item.cantidad }}x {{ fmtBs(item.precioSinIvaBs) }}
+            <div v-for="(item, i) in cart.itemsConBs" :key="item.productoId" class="vb-fiscal-item">
+              <div class="vb-fiscal-item-desc">{{ item.desc }}</div>
+              <!-- Precio unitario y total por cantidad, en $ y en Bs. El
+                   monto que se cobra es el de Bs (ver cart.totalBs). -->
+              <div class="vb-fiscal-item-detalle">
+                {{ item.cantidad }}x {{ fmtUsd(item.precio) }} = {{ fmtUsd(round2(item.precio * item.cantidad)) }}
               </div>
-              <div class="vb-fiscal-item-linea">
-                <span class="desc">{{ fiscalDesc(item.desc) }}</span>
-                <b class="monto">{{ fmtBs(item.subtotalLineaSinIvaBs) }}</b>
+              <div class="vb-fiscal-item-detalle">
+                {{ item.cantidad }}x {{ fmtBs(item.precioBs) }} = {{ fmtBs(item.subtotalLineaBs) }}
               </div>
             </div>
           </div>
           <div class="vb-fiscal-totals">
-            <div><span>BI G ({{ ivaPorcentajeFmt }}%)</span><b>{{ fmtBs(cart.fiscalPreview.subtotalSinIvaBs) }}</b></div>
-            <div><span>IVA G ({{ ivaPorcentajeFmt }}%)</span><b>{{ fmtBs(cart.fiscalPreview.ivaBs) }}</b></div>
+            <div><span>Artículos</span><b>{{ cart.count }}</b></div>
+            <div class="vb-fiscal-total-row">
+              <span>TOTAL A COBRAR</span>
+              <b>{{ fmtBs(cart.totalBs) }}</b>
+            </div>
+            <div class="vb-fiscal-total-usd">{{ fmtUsd(cart.total) }}</div>
           </div>
         </template>
         
@@ -480,12 +416,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       @confirm="vaciarProductos"
     />
     <ClienteModal v-model="clienteModalOpen" :prefill="clientePrefill" @created="onClienteCreado" />
-    <FiscalPrintErrorModal
-      :model-value="!!fiscalPrintError"
-      :message="fiscalPrintError?.message"
-      @update:model-value="(v) => { if (!v) fiscalPrintError = null }"
-      @retry="reintentarImpresionFiscal"
-    />
   </div>
 </template>
 
@@ -749,9 +679,10 @@ table.vb-datagrid {
   letter-spacing: 0.05em;
   margin-bottom: 8px;
 }
-/* Bloque monoespaciado que replica el ticket fiscal. Ocupa todo el alto
-   libre entre el título y el bloque BI/IVA (que queda fijo justo encima del
-   botón Cobrar): el scroll solo aparece cuando los productos no caben. */
+/* Bloque monoespaciado con el detalle por producto (cantidad x precio unitario
+   = total de la línea, en $ y en Bs). Ocupa todo el alto libre entre el título
+   y el bloque de totales (fijo justo encima del botón Cobrar): el scroll solo
+   aparece cuando los productos no caben. */
 .vb-fiscal-items {
   flex: 1 1 auto;
   min-height: 0;
@@ -775,21 +706,18 @@ table.vb-datagrid {
   border-top: 1px dashed var(--border);
   padding-top: 6px;
 }
-.vb-fiscal-item-qty {
+/* Descripción del producto: si es larga se recorta en una sola línea para
+   que el bloque monoespaciado no desborde el ancho del resumen. */
+.vb-fiscal-item-desc {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
 }
-.vb-fiscal-item-linea {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-.vb-fiscal-item-linea .desc {
-  white-space: pre;
-}
-.vb-fiscal-item-linea .monto {
-  margin-left: auto;
-  font-weight: 400;
+/* Detalle de la línea: "2x $5.00 = $10.00" y su equivalente en Bs. */
+.vb-fiscal-item-detalle {
   white-space: nowrap;
+  color: var(--text-muted);
 }
 .vb-fiscal-totals {
   display: flex;
@@ -816,5 +744,22 @@ table.vb-datagrid {
   font-weight: 400;
   color: var(--text);
   white-space: nowrap;
+}
+/* Fila del total a cobrar: separa visualmente del detalle de artículos. */
+.vb-fiscal-total-row {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.vb-fiscal-total-row span {
+  font-weight: 700;
+}
+.vb-fiscal-total-row b {
+  font-weight: 700;
+}
+/* Equivalente del total en dólares, debajo del monto en Bs. */
+.vb-fiscal-total-usd {
+  justify-content: flex-end;
+  color: var(--text-muted);
 }
 </style>

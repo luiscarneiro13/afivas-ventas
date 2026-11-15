@@ -27,6 +27,15 @@ export function makeUsuariosRepository(knex) {
       return toPublicUser(row)
     },
 
+    // Verifica la contraseña de un usuario concreto. Se usa en las
+    // operaciones sensibles (que piden la contraseña antes de ejecutar).
+    async verificarPassword(id, password) {
+      if (!id || !password) return false
+      const row = await knex('usuarios').where({ id }).first()
+      if (!row) return false
+      return bcrypt.compare(password, row.password_hash)
+    },
+
     async list() {
       const rows = await knex('usuarios').orderBy('nombre_completo')
       return rows.map(toPublicUser)

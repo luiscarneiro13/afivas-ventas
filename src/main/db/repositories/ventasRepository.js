@@ -151,14 +151,17 @@ export function makeVentasRepository(knex) {
 
     // Agregado en SQL en vez de traer todos los venta_items al renderer:
     // evita cargar el historial completo solo para calcular un dato.
+    // Se agrupa por `producto_id` y NO por código: desde la migración 027 el
+    // código puede estar repetido (y la descripción guardada es una foto del
+    // momento de la venta).
     async topProducto() {
       const row = await knex('venta_items')
         .join('ventas', 'ventas.id', 'venta_items.venta_id')
         .where('ventas.estado', 'completada')
-        .groupBy('venta_items.codigo_snapshot', 'venta_items.descripcion_snapshot')
+        .groupBy('venta_items.producto_id')
         .select(
-          'venta_items.codigo_snapshot as codigo',
-          'venta_items.descripcion_snapshot as descripcion'
+          knex.raw('MAX(venta_items.codigo_snapshot) as codigo'),
+          knex.raw('MAX(venta_items.descripcion_snapshot) as descripcion')
         )
         .sum({ cantidad: 'venta_items.cantidad' })
         .orderBy('cantidad', 'desc')

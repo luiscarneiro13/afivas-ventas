@@ -13,14 +13,19 @@ const api = {
   testTfhka: (comPort) => ipcRenderer.invoke('tfhka:test', comPort),
   printReporteX: (comPort) => ipcRenderer.invoke('tfhka:printReporteX', comPort),
   printReporteZ: (comPort) => ipcRenderer.invoke('tfhka:printReporteZ', comPort),
-  printFacturaFiscal: (comPort, venta) => ipcRenderer.invoke('tfhka:printFactura', comPort, venta),
+  // Deshabilitado: impresión de factura fiscal.
+  // printFacturaFiscal: (comPort, venta) => ipcRenderer.invoke('tfhka:printFactura', comPort, venta),
 
   // Productos
   productosList: () => ipcRenderer.invoke('productos:list'),
   productosSearch: (term) => ipcRenderer.invoke('productos:search', term),
   productosCreate: (payload) => ipcRenderer.invoke('productos:create', payload),
-  productosUpdate: (codigo, payload) => ipcRenderer.invoke('productos:update', codigo, payload),
-  productosRemove: (codigo) => ipcRenderer.invoke('productos:remove', codigo),
+  productosUpdate: (id, payload) => ipcRenderer.invoke('productos:update', id, payload),
+  productosRemove: (id) => ipcRenderer.invoke('productos:remove', id),
+
+  // Operaciones de mantenimiento (exigen la contraseña del usuario).
+  operacionesVaciarProductosYVentas: (payload) =>
+    ipcRenderer.invoke('operaciones:vaciarProductosYVentas', payload),
 
   // Categorías
   categoriasList: () => ipcRenderer.invoke('categorias:list'),
@@ -52,7 +57,8 @@ const api = {
   ventasFindByNumero: (numero) => ipcRenderer.invoke('ventas:findByNumero', numero),
   ventasTopProducto: () => ipcRenderer.invoke('ventas:topProducto'),
   ventasAnular: (id) => ipcRenderer.invoke('ventas:anular', id),
-  ventasMarcarImpresaFiscalmente: (id) => ipcRenderer.invoke('ventas:marcarImpresaFiscalmente', id),
+  // Deshabilitado: la impresión fiscal ya no se usa.
+  // ventasMarcarImpresaFiscalmente: (id) => ipcRenderer.invoke('ventas:marcarImpresaFiscalmente', id),
 
   // Entradas de stock
   stockRegistrarEntrada: (payload) => ipcRenderer.invoke('stock:registrarEntrada', payload),

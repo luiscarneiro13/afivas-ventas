@@ -115,6 +115,13 @@ function printReporteZ(comPort) {
   })
 }
 
+/* =====================================================================
+   IMPRESIÓN DE FACTURA FISCAL — DESHABILITADA
+   El sistema funciona como notas de entrega y ya no imprime facturas.
+   Este bloque (helpers TFHKA + printFacturaFiscal) queda comentado por
+   si se quiere reactivar en el futuro.
+   ===================================================================== */
+/*
 // Formatea un precio como exige el comando `!` de TFHKA: 8 dígitos enteros
 // + 2 decimales, sin separador, con ceros a la izquierda (10 caracteres).
 function formatPrecioTfhka(precio) {
@@ -268,6 +275,7 @@ function printFacturaFiscal(comPort, venta) {
     return { ok: true, message: 'Factura fiscal impresa.' }
   })
 }
+*/
 
 // Los puertos COM activos quedan registrados por Windows en esta clave del
 // registro (DEVICEMAP\SERIALCOMM), sea el puerto físico o un adaptador
@@ -340,7 +348,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('tfhka:test', (_event, comPort) => testTfhka(comPort))
   ipcMain.handle('tfhka:printReporteX', (_event, comPort) => printReporteX(comPort))
   ipcMain.handle('tfhka:printReporteZ', (_event, comPort) => printReporteZ(comPort))
-  ipcMain.handle('tfhka:printFactura', (_event, comPort, venta) => printFacturaFiscal(comPort, venta))
+  // Deshabilitado: impresión de factura fiscal (ver bloque comentado arriba).
+  // ipcMain.handle('tfhka:printFactura', (_event, comPort, venta) => printFacturaFiscal(comPort, venta))
 
   createWindow()
 

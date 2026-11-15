@@ -12,6 +12,7 @@ import { makeVentasRepository } from './ventasRepository.js'
 import { makeConfigEmpresaRepository } from './configEmpresaRepository.js'
 import { makeConfigImpresoraRepository } from './configImpresoraRepository.js'
 import { makeCierresFiscalesRepository } from './cierresFiscalesRepository.js'
+import { makeOperacionesRepository } from './operacionesRepository.js'
 
 export function makeRepositories(knex) {
   return {
@@ -28,6 +29,7 @@ export function makeRepositories(knex) {
     ventas: makeVentasRepository(knex),
     configEmpresa: makeConfigEmpresaRepository(knex),
     configImpresora: makeConfigImpresoraRepository(knex),
-    cierresFiscales: makeCierresFiscalesRepository(knex)
+    cierresFiscales: makeCierresFiscalesRepository(knex),
+    operaciones: makeOperacionesRepository(knex)
   }
 }
